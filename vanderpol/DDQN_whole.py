@@ -51,18 +51,14 @@ epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_fi
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 model_1 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
-model_1.load_state_dict(torch.load("actor_2800.pth"))
+model_1.load_state_dict(torch.load("./trained_models/actor_2800.pth"))
 model_1.eval()
 
 model_2 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
-model_2.load_state_dict(torch.load("actor_2900.pth"))
+model_2.load_state_dict(torch.load("./trained_models/actor_2900.pth"))
 model_2.eval()
 
 Individual = IndividualModel(state_size=2, action_size=1, seed=0).to(device)
-
-# single_model = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
-# single_model.load_state_dict(torch.load("actor_single_2400.pth"))
-# print(model_1, model_2, single_model)
 
 # invariant_1 = io.loadmat('m1_inv.mat')['V']
 # invariant_2 = io.loadmat('m2_inv.mat')['V']
@@ -117,9 +113,7 @@ class DQN(nn.Module):
 	
 	def act(self, state, epsilon):
 		if random.random() > epsilon:
-			# state   = Variable(torch.FloatTensor(state).unsqueeze(0), volatile=True)
 			q_value = self.forward(state)
-			# print(q_value)
 			action  = q_value.max(0)[1].item()
 		else:
 			action = random.randrange(self.num_actions)
@@ -176,7 +170,6 @@ def train_adapter():
 			next_state, reward, done = env.step(control_action)
 
 			reward += 2
-			# reward -= weight * (abs(next_state[0]) + abs(next_state[1]))
 			reward -= weight * abs(control_action) * 20
 			if done and t <190:
 				reward -= 100
@@ -198,7 +191,7 @@ def train_adapter():
 		if ep >= 100 and ep % 100 == 0:
 			torch.save(model.state_dict(), './ddqn_models/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
 
-def test(adapter_name=None, state_list=None, renew=False, mode='switch'):
+def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NAME=None):
 	print(mode)
 	env = Osillator()
 	model = DQN(2, 2).to(device)
@@ -206,7 +199,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch'):
 	if mode == 'switch':
 		model.load_state_dict(torch.load(adapter_name))
 	if mode == 'individual':
-		Individual.load_state_dict(torch.load('Individual.pth'))
+		Individual.load_state_dict(torch.load('./trained_models/Individual.pth'))
 	if renew:
 		state_list = []
 	fuel_list = []
@@ -255,19 +248,20 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch'):
 				break
 		
 		ep_reward.append(ep_r)
-		if t >= 190:
+		if t >= 95:
 			fuel_list.append(fuel)
 		else:
-			print(state_list[ep])
-		trajectory = np.array(trajectory)
-		# plt.figure()
-		plt.plot(trajectory[:, 0], trajectory[:, 1], label=mode)
-		plt.legend()
-		plt.savefig('trajectory.png')
+			print(ep, state_list[ep])
+		if ep == 0:
+			trajectory = np.array(trajectory)
+			# plt.figure()
+			plt.plot(trajectory[:, 0], trajectory[:, 1], label=mode)
+			plt.legend()
+			plt.savefig('trajectory.png')
 	return ep_reward, np.array(fuel_list), state_list
 
 
-def distill(adapter_name):
+def distill(adapter_name, INDI_NAME):
 	optimizer = torch.optim.SGD(Individual.parameters(), lr = 0.001, momentum=0.9)
 	loss_func = torch.nn.MSELoss()
 	env = Osillator()
@@ -301,15 +295,16 @@ def distill(adapter_name):
 			if done:
 				break
 		print(ep_loss)
-	torch.save(Individual.state_dict(), 'Individual.pth')
+	torch.save(Individual.state_dict(), INDI_NAME)
 
 if __name__ == '__main__':
+	ADAPTER_NAME = './trained_models/adapter.pth'
+	INDI_NAME = './trained_models/Individual.pth'
+	# distill(ADAPTER_NAME, INDI_NAME)
 
-	sw_reward, sw_fuel, sw_state  = test('./ddqn_200_1.0_good.pth', state_list=None, renew=True, mode='switch')
+	sw_reward, sw_fuel, sw_state  = test(ADAPTER_NAME, state_list=None, renew=True, mode='switch')
 	d1_reward, d1_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d1')
 	d2_reward, d2_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d2')
-	indi_reward, indi_fuel, _ = test(None, state_list=sw_state, renew=False, mode='individual')
+	indi_reward, indi_fuel, _ = test(None, state_list=sw_state, renew=False, mode='individual', INDI_NAME=INDI_NAME)
 	print(np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), np.mean(indi_fuel), 
 		len(sw_fuel), len(d1_fuel), len(d2_fuel), len(indi_fuel))
-
-	# distill('./ddqn_200_1.0_good.pth')

@@ -23,7 +23,7 @@ def main():
 class Osillator:
     deltaT = 0.05
     u_range = 20
-    max_iteration = 200
+    max_iteration = 100
     error = 1e-5
     x0_low = -2
     x0_high = 2  
@@ -58,16 +58,14 @@ class Osillator:
         self.u_last = 0
         return self.state
 
-    def step(self, action):
-        # np.random.seed(1)
+    def step(self, action, smoothness=0.2):
         disturbance = np.random.uniform(-0.05, 0.05)
-        # disturbance = 0
         u = action * self.u_range
         x0_tmp = self.state[0] + self.deltaT * self.state[1]
         x1_tmp = self.state[1] + self.deltaT*((1-self.state[0]**2)*self.state[1] - self.state[0] + u) + disturbance
         
         self.t = self.t + 1
-        reward = self.design_reward(u, self.u_last, smoothness=0.2)
+        reward = self.design_reward(u, self.u_last, smoothness)
         self.u_last = u
         self.state = np.array([x0_tmp, x1_tmp])
         done = self.if_unsafe() or self.t == self.max_iteration
@@ -75,11 +73,9 @@ class Osillator:
 
     def design_reward(self, u, u_last, smoothness):
         r = 0
-        # tarining actor2800 and actor2900
-        # actor
-        r -= 5 * abs(self.state[0])
-        r -= 5 * abs(self.state[1])
-        r -= 0.2 * abs(u)
+        r -= 1 / smoothness * abs(self.state[0])
+        r -= 1 / smoothness * abs(self.state[1])
+        r -= smoothness * abs(u)
         r -= smoothness * abs(u - u_last)
         if self.if_unsafe():
             r -= 50

@@ -57,9 +57,9 @@ class Actor(nn.Module):
         
         self.fc1 = nn.Linear(state_size, fc1_units)
         # self.ln1 = nn.LayerNorm(fc1_units)
-        # self.fc2 = nn.Linear(fc1_units, fc2_units)
+        self.fc2 = nn.Linear(fc1_units, fc2_units)
         # self.ln2 = nn.LayerNorm(fc2_units)
-        self.fc3 = nn.Linear(fc1_units, action_size)
+        self.fc3 = nn.Linear(fc2_units, action_size)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -73,9 +73,9 @@ class Actor(nn.Module):
         x = self.fc1(x)
         # x = self.ln1(x)
         x = F.relu(x)
-        # x = self.fc2(x)
-        # # # x = self.ln2(x)
-        # x = F.relu(x)
+        x = self.fc2(x)
+        # # x = self.ln2(x)
+        x = F.relu(x)
         x = self.fc3(x)
         return torch.tanh(x)
 
@@ -122,7 +122,6 @@ class IndividualModel(nn.Module):
     def __init__(self, state_size, action_size, seed, fc1_units=50):
         super(IndividualModel, self).__init__()
         self.fc1 = nn.Linear(state_size, fc1_units)
-        # self.ln1 = nn.LayerNorm(fc1_units)
         self.fc2 = nn.Linear(fc1_units, action_size)
         self.seed = torch.manual_seed(seed)
 
@@ -137,7 +136,7 @@ class IndividualModel(nn.Module):
 
 if __name__ == '__main__':
     from thop import profile
-    net = IndividualModel(2, 1, 0).to('cuda')
+    net = Actor(2, 1, 0).to('cuda')
 
     input_size = 2
     input = torch.randn(1, input_size).to('cuda')
