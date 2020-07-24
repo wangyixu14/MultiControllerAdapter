@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from Model import Actor
+from Model import Actor, IndividualModel
 import time
 import torch.optim as optim
 import random
@@ -58,6 +58,8 @@ model_2 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
 model_2.load_state_dict(torch.load("actor_2900.pth"))
 model_2.eval()
 
+Individual = IndividualModel(state_size=2, action_size=1, seed=0).to(device)
+
 # single_model = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
 # single_model.load_state_dict(torch.load("actor_single_2400.pth"))
 # print(model_1, model_2, single_model)
@@ -96,7 +98,7 @@ model_2.eval()
 # 	return np.array([int(x0 in Interval(-2, 1)), int(x0 in Interval(-1, 2))]) 
 
 def update_target(current_model, target_model):
-    target_model.load_state_dict(current_model.state_dict())
+	target_model.load_state_dict(current_model.state_dict())
 
 class DQN(nn.Module):
 	def __init__(self, num_inputs, num_actions):
@@ -197,16 +199,19 @@ def train_adapter():
 			torch.save(model.state_dict(), './ddqn_models/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
 
 def test(adapter_name=None, state_list=None, renew=False, mode='switch'):
+	print(mode)
 	env = Osillator()
 	model = DQN(2, 2).to(device)
-	EP_NUM = 200
+	EP_NUM = 500
 	if mode == 'switch':
 		model.load_state_dict(torch.load(adapter_name))
+	if mode == 'individual':
+		Individual.load_state_dict(torch.load('Individual.pth'))
 	if renew:
 		state_list = []
 	fuel_list = []
 	ep_reward = []
-
+	trajectory = []
 	for ep in range(EP_NUM):
 		if renew:
 			state = env.reset()
@@ -216,7 +221,8 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch'):
 			state = env.reset(state_list[ep][0], state_list[ep][1])
 		ep_r = 0
 		fuel = 0
-		
+		if ep == 0:
+			trajectory.append(state)
 		for t in range(env.max_iteration):
 			state = torch.from_numpy(state).float().to(device)
 			# flag = where_inv(state.cpu().numpy())
@@ -230,64 +236,80 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch'):
 				if ep == 0:
 					print(t, state, action, control_action*20)
 			
-			elif mode == 'random':
-				action = np.random.randint(2)
-				if action == 0:
-					control_action = model_1(state).cpu().data.numpy()[0]
-				elif action == 1:
-					control_action = model_2(state).cpu().data.numpy()[0]
-			
 			elif mode == 'd1':
 				control_action = model_1(state).cpu().data.numpy()[0]
 		
 			elif mode == 'd2':
 				control_action = model_2(state).cpu().data.numpy()[0]
 
+			elif mode == 'individual':
+				control_action = Individual(state).cpu().data.numpy()[0]
+
 			next_state, reward, done = env.step(control_action)
 			fuel += abs(control_action) * 20
 			state = next_state
+			if ep == 0:
+				trajectory.append(state)
 			ep_r += reward
 			if done:
 				break
-	
+		
 		ep_reward.append(ep_r)
-		if t >= 90:
+		if t >= 190:
 			fuel_list.append(fuel)
+		else:
+			print(state_list[ep])
+		trajectory = np.array(trajectory)
+		# plt.figure()
+		plt.plot(trajectory[:, 0], trajectory[:, 1], label=mode)
+		plt.legend()
+		plt.savefig('trajectory.png')
 	return ep_reward, np.array(fuel_list), state_list
 
-def distill(model_name):
+
+def distill(adapter_name):
+	optimizer = torch.optim.SGD(Individual.parameters(), lr = 0.001, momentum=0.9)
+	loss_func = torch.nn.MSELoss()
 	env = Osillator()
 	model = DQN(2, 2).to(device)
-	EP_NUM = 2
+	EP_NUM = 500
 
-	model.load_state_dict(torch.load(model_name))
+	model.load_state_dict(torch.load(adapter_name))
 
 	for ep in range(EP_NUM):
+		ep_loss = 0
 		state = env.reset()
-		
-		for  t in range(env.max_iteration):
+		for t in range(env.max_iteration):
 			state = torch.from_numpy(state).float().to(device)
 			action = model.act(state, epsilon=0)
 			with torch.no_grad():
 				if action == 0:
-					control_action = model_1(state).cpu().data.numpy()[0]
+					control_action = model_1(state)
 				elif action == 1:
-					control_action = model_2(state).cpu().data.numpy()[0]
-			if ep == 0:
-				print(t, state, action, control_action*20)
+					control_action = model_2(state)
 
-			next_state, reward, done = env.step(control_action)
+			control_action.requires_grad = False
+			prediction = Individual(state)
+			loss = loss_func(prediction, control_action) 
+			optimizer.zero_grad()
+			loss.backward()        
+			optimizer.step()
+			ep_loss += loss.item()     
+
+			next_state, reward, done = env.step(control_action.cpu().data.numpy()[0])
 			state = next_state
 			if done:
 				break
+		print(ep_loss)
+	torch.save(Individual.state_dict(), 'Individual.pth')
 
 if __name__ == '__main__':
 
-	# sw_reward, sw_fuel, sw_state  = test('./ddqn_200_1.0_good.pth', state_list=None, renew=True, mode='switch')
-	# d1_reward, d1_fuel, _ = test(model_name=None, state_list=sw_state, renew=False, mode='d1')
-	# ran_reward, ran_fuel, _ = test(model_name=None, state_list=sw_state, renew=False, mode='random')
-	# d2_reward, d2_fuel, _ = test(model_name=None, state_list=sw_state, renew=False, mode='d2')
-	# print(np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), np.mean(ran_fuel), 
-	# 	len(sw_fuel), len(d1_fuel), len(d2_fuel), len(ran_fuel))
+	sw_reward, sw_fuel, sw_state  = test('./ddqn_200_1.0_good.pth', state_list=None, renew=True, mode='switch')
+	d1_reward, d1_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d1')
+	d2_reward, d2_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d2')
+	indi_reward, indi_fuel, _ = test(None, state_list=sw_state, renew=False, mode='individual')
+	print(np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), np.mean(indi_fuel), 
+		len(sw_fuel), len(d1_fuel), len(d2_fuel), len(indi_fuel))
 
-	distill('./ddqn_200_1.0_good.pth')
+	# distill('./ddqn_200_1.0_good.pth')

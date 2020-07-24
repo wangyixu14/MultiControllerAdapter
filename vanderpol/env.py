@@ -23,7 +23,7 @@ def main():
 class Osillator:
     deltaT = 0.05
     u_range = 20
-    max_iteration = 100
+    max_iteration = 200
     error = 1e-5
     x0_low = -2
     x0_high = 2  
