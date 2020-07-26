@@ -3,7 +3,7 @@ import random
 import copy
 from collections import namedtuple, deque
 
-from Model import Actor, Critic
+from Model import Actor, Critic, IndividualModel
 from Noise import OUNoise
 
 import torch
@@ -29,7 +29,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class Agent():
     """Interacts with and learns from the environment."""
 
-    def __init__(self, state_size, action_size, random_seed, fc1_units, fc2_units):
+    def __init__(self, state_size, action_size, random_seed, fc1_units, fc2_units, individual=False):
         """Initialize an Agent object.
 
         Params
@@ -44,8 +44,12 @@ class Agent():
         self.epsilon = EPSILON_MAX
 
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)
-        self.actor_target = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)
+        if individual:
+            self.actor_local = IndividualModel(state_size, action_size, random_seed, fc1_units).to(device)
+            self.actor_target = IndividualModel(state_size, action_size, random_seed, fc1_units).to(device)            
+        else:
+            self.actor_local = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)
+            self.actor_target = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)
         self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
 
         # Critic Network (w/ Target Network)

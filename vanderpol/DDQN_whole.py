@@ -50,48 +50,15 @@ epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_fi
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-model_1 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
-model_1.load_state_dict(torch.load("./trained_models/actor_2800.pth"))
+model_1 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25, fc2_units=None).to(device)
+model_1.load_state_dict(torch.load("./ICCAD_models/actor_2800.pth"))
 model_1.eval()
 
-model_2 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
-model_2.load_state_dict(torch.load("./trained_models/actor_2900.pth"))
+model_2 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25, fc2_units=None).to(device)
+model_2.load_state_dict(torch.load("./ICCAD_models/actor_2900.pth"))
 model_2.eval()
 
 Individual = IndividualModel(state_size=2, action_size=1, seed=0).to(device)
-
-# invariant_1 = io.loadmat('m1_inv.mat')['V']
-# invariant_2 = io.loadmat('m2_inv.mat')['V']
-# single_inv = io.loadmat('data/single.mat')['V']
-
-# def is_invariant(state):
-	 
-# 	x_loc = state[0] + 150
-# 	y_loc = state[1] + 40
-# 	x = np.linspace(115, 185, 150)
-# 	y = np.linspace(22, 58, 150)
-# 	inv1 = interp2d(x, y, single_inv, kind='cubic')(x_loc, y_loc)
-# 	return int(inv1<1e-6)
-
-# def where_inv(state):
-	 
-# 	x_loc = state[0]
-# 	y_loc = state[1]
-# 	x1 = np.linspace(-2.5, 1.5, 150)
-# 	y1 = np.linspace(-2.5, 2.5, 150)
-# 	inv1 = interp2d(x1, y1, invariant_1, kind='cubic')(x_loc, y_loc)
-	
-# 	x2 = np.linspace(-1.5, 2.5, 150)
-# 	y2 = np.linspace(-2.5, 2.5, 150)
-# 	inv2 = interp2d(x2, y2, invariant_2, kind='cubic')(x_loc, y_loc)
-
-# 	return np.array([int(inv1<1e-6), int(inv2<1e-6)])
-
-# whole space
-# def where_inv(state):
-# 	x0 = state[0]
-# 	x1 = state[1]
-# 	return np.array([int(x0 in Interval(-2, 1)), int(x0 in Interval(-1, 2))]) 
 
 def update_target(current_model, target_model):
 	target_model.load_state_dict(current_model.state_dict())
@@ -167,13 +134,14 @@ def train_adapter():
 					control_action = model_1(state).cpu().data.numpy()[0]
 				elif action == 1:
 					control_action = model_2(state).cpu().data.numpy()[0]
-			next_state, reward, done = env.step(control_action)
-
-			reward += 2
+				else: 
+					assert False
+					control_action = 0
+			next_state, _, done = env.step(control_action)
+			reward = 2
 			reward -= weight * abs(control_action) * 20
 			if done and t <190:
 				reward -= 100
-
 			replay_buffer.push(state.cpu().numpy(), action, reward, next_state, done)
 			fuel_list.append(abs(control_action) * 20)
 			state = next_state
@@ -189,7 +157,7 @@ def train_adapter():
 		print('epoch:', ep, 'reward:', ep_r, 'average reward:', np.mean(ep_reward),
 					 'fuel cost:', sum(fuel_list[-t - 1:]), 'epsilon:', epsilon, len(replay_buffer)) 
 		if ep >= 100 and ep % 100 == 0:
-			torch.save(model.state_dict(), './ddqn_models/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
+			torch.save(model.state_dict(), './adapter/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
 
 def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NAME=None):
 	print(mode)
@@ -199,7 +167,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 	if mode == 'switch':
 		model.load_state_dict(torch.load(adapter_name))
 	if mode == 'individual':
-		Individual.load_state_dict(torch.load('./trained_models/Individual.pth'))
+		Individual.load_state_dict(torch.load(INDI_NAME))
 	if renew:
 		state_list = []
 	fuel_list = []
@@ -226,6 +194,9 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 						control_action = model_1(state).cpu().data.numpy()[0]
 					elif action == 1:
 						control_action = model_2(state).cpu().data.numpy()[0]
+					else:
+						assert False
+						control_action = 0
 				if ep == 0:
 					print(t, state, action, control_action*20)
 			
@@ -298,13 +269,14 @@ def distill(adapter_name, INDI_NAME):
 	torch.save(Individual.state_dict(), INDI_NAME)
 
 if __name__ == '__main__':
-	ADAPTER_NAME = './trained_models/adapter.pth'
-	INDI_NAME = './trained_models/Individual.pth'
-	# distill(ADAPTER_NAME, INDI_NAME)
+	# train_adapter()	
+	ADAPTER_NAME = './ICCAD_models/adapter.pth'
+	INDI_NAME = './ICCAD_models/Individual.pth'
+	# # distill(ADAPTER_NAME, INDI_NAME)
 
 	sw_reward, sw_fuel, sw_state  = test(ADAPTER_NAME, state_list=None, renew=True, mode='switch')
 	d1_reward, d1_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d1')
 	d2_reward, d2_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d2')
 	indi_reward, indi_fuel, _ = test(None, state_list=sw_state, renew=False, mode='individual', INDI_NAME=INDI_NAME)
-	print(np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), np.mean(indi_fuel), 
+	print(np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), np.mean(indi_fuel),
 		len(sw_fuel), len(d1_fuel), len(d2_fuel), len(indi_fuel))
