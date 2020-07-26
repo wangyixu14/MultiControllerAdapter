@@ -11,11 +11,9 @@ env = Osillator()
 
 import os
 import sys
-
 module_path = os.path.abspath(os.path.join('../..'))
 if module_path not in sys.path:
 	sys.path.append(module_path)
-
 from Agent import Agent
 
 def save_model(i_episode):
@@ -23,6 +21,7 @@ def save_model(i_episode):
 	if i_episode >= 2400:
 		torch.save(agent.actor_local.state_dict(), './actors/actor_'+str(i_episode)+ '.pth')
 
+# train controller for the env system
 def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
 	scores_deque = deque(maxlen=100)
 	scores = []
@@ -54,6 +53,8 @@ def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
 					
 	return scores
 
+# random intial state test for safe, unsafe region or 
+#test the controlled trajectory for individual controller and Bernstein polynomial approximation
 def test(agent, filename, renew, state_list=[], EP_NUM=500, random_initial_test=True, BP=False):
 	agent.actor_local.load_state_dict(torch.load(filename))
 	safe = []
@@ -125,8 +126,10 @@ if __name__ == '__main__':
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	random_seed = int(sys.argv[2])
 	from itertools import count
-	import time	
+	import time
+	# for trained multuple actors	
 	# agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=25, fc2_units=None, individual=False)
+	# for individual distilled controller
 	agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=50, fc2_units=None, individual=True)
 
 	# scores = ddpg()
