@@ -274,7 +274,8 @@ if __name__ == '__main__':
 	INDI_NAME = './ICCAD_models/Individual.pth'
 	# # distill(ADAPTER_NAME, INDI_NAME)
 
-	sw_reward, sw_fuel, sw_state  = test(ADAPTER_NAME, state_list=None, renew=True, mode='switch')
+	sw_state = np.load('initial_state.npy')
+	sw_reward, sw_fuel, _  = test(ADAPTER_NAME, state_list=sw_state, renew=False, mode='switch')
 	d1_reward, d1_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d1')
 	d2_reward, d2_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d2')
 	indi_reward, indi_fuel, _ = test(None, state_list=sw_state, renew=False, mode='individual', INDI_NAME=INDI_NAME)
