@@ -1,3 +1,5 @@
+#this file is going to train the adapter by Double DQN, distill an individual controller from
+#multiple controllers with the adapter, and test them for control performance and safely control rate
 import numpy as np
 import torch
 import torch.nn as nn
@@ -51,14 +53,19 @@ epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_fi
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 model_1 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25, fc2_units=None).to(device)
-model_1.load_state_dict(torch.load("./ICCAD_models/actor_2800.pth"))
+model_1.load_state_dict(torch.load("./models/actor_2800.pth"))
 model_1.eval()
 
 model_2 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25, fc2_units=None).to(device)
-model_2.load_state_dict(torch.load("./ICCAD_models/actor_2900.pth"))
+model_2.load_state_dict(torch.load("./models/actor_2900.pth"))
 model_2.eval()
 
 Individual = IndividualModel(state_size=2, action_size=1, seed=0).to(device)
+
+def mkdir(path):
+	folder = os.path.exists(path)
+	if not folder:
+		os.makedirs(path)
 
 def update_target(current_model, target_model):
 	target_model.load_state_dict(current_model.state_dict())
@@ -112,7 +119,9 @@ def compute_td_loss(model, target_model, batch_size, optimizer):
 	
 	return loss
 
+# train the adapter by Double DQN for multiple controllers
 def train_adapter():
+	mkdir('./adapter')
 	env = Osillator()
 	model = DQN(2, 2).to(device)
 	target_model = DQN(2, 2).to(device)
@@ -159,6 +168,7 @@ def train_adapter():
 		if ep >= 100 and ep % 100 == 0:
 			torch.save(model.state_dict(), './adapter/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
 
+# test for 500 cases with their safely control rate and energy consumption
 def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NAME=None):
 	print(mode)
 	env = Osillator()
@@ -231,7 +241,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			plt.savefig('trajectory.png')
 	return ep_reward, np.array(fuel_list), state_list
 
-
+# distill to get an individual controller supervised by multiple controller with the adapter trained by Double DQN
 def distill(adapter_name, INDI_NAME):
 	optimizer = torch.optim.SGD(Individual.parameters(), lr = 0.001, momentum=0.9)
 	loss_func = torch.nn.MSELoss()
@@ -270,8 +280,8 @@ def distill(adapter_name, INDI_NAME):
 
 if __name__ == '__main__':
 	# train_adapter()	
-	ADAPTER_NAME = './ICCAD_models/adapter.pth'
-	INDI_NAME = './ICCAD_models/Individual.pth'
+	ADAPTER_NAME = './models/adapter.pth'
+	INDI_NAME = './models/Individual.pth'
 	# # distill(ADAPTER_NAME, INDI_NAME)
 
 	# sw_state = np.load('initial_state_500_valuebased.npy')

@@ -1,3 +1,4 @@
+# This file define the Oscillator dynamics, reward function and safety property
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import linalg as LA

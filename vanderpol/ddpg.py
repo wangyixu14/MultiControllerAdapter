@@ -1,3 +1,6 @@
+# this file is to train and test NN controller
+# Invariant of Bernstein polynomial approximation is also shown here whose computation is referred to
+# files in ./mat folder, where value-based method and polySOS are used
 import gym.spaces
 import random
 import torch
@@ -18,6 +21,11 @@ if module_path not in sys.path:
 	sys.path.append(module_path)
 from Agent import Agent
 
+def mkdir(path):
+	folder = os.path.exists(path)
+	if not folder:
+		os.makedirs(path)
+
 def save_model(i_episode):
 	print("Model Save...")
 	if i_episode >= 2400:
@@ -25,6 +33,7 @@ def save_model(i_episode):
 
 # train controller for the env system
 def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
+	mkdir('./actors')
 	scores_deque = deque(maxlen=100)
 	scores = []
 	
@@ -110,7 +119,7 @@ def test(agent, filename, renew, state_list=[], EP_NUM=500, random_initial_test=
 		plt.savefig(filename+'.png')
 	return state_list, fuel_list, np.array(trajectory)
 
-
+# please refer to ReachNN code for Bernstein Polynomial approximation
 def individual_Bernstein_polynomial(state):
 	x0 = state[0]
 	x1 = state[1]
@@ -136,7 +145,6 @@ def individual_Bernstein_polynomial(state):
 	elif -1 < x0 and x0 <= 1:#[3, 3] err 0.09
 		y = -0.243584378266395*(0.5 - 0.5*x0)*(0.5 - 0.25*x1)*(x0 + 1)**2*(0.5*x1 + 1)**2 + 0.0556068616975541*(0.5 - 0.5*x0)*(1 - 0.5*x1)**3*(x0 + 1)**2 + 0.0150306530769696*(0.5 - 0.5*x0)*(1 - 0.5*x1)**2*(x0 + 1)**2*(0.25*x1 + 0.5) - 0.0647859069392533*(0.5 - 0.5*x0)*(x0 + 1)**2*(0.5*x1 + 1)**3 + 0.0179892008503783*(0.5 - 0.25*x1)*(1 - x0)**3*(0.5*x1 + 1)**2 - 0.0566021333753245*(0.5 - 0.25*x1)*(1 - x0)**2*(0.5*x0 + 0.5)*(0.5*x1 + 1)**2 - 0.0572932821028275*(0.5 - 0.25*x1)*(x0 + 1)**3*(0.5*x1 + 1)**2 + 0.0133833782979996*(1 - x0)**3*(1 - 0.5*x1)**3 + 0.0675801821310418*(1 - x0)**3*(1 - 0.5*x1)**2*(0.25*x1 + 0.5) - 0.0044270349407234*(1 - x0)**3*(0.5*x1 + 1)**3 + 0.071725194207449*(1 - x0)**2*(1 - 0.5*x1)**3*(0.5*x0 + 0.5) + 0.272500805218411*(1 - x0)**2*(1 - 0.5*x1)**2*(0.5*x0 + 0.5)*(0.25*x1 + 0.5) - 0.0530354952052034*(1 - x0)**2*(0.5*x0 + 0.5)*(0.5*x1 + 1)**3 + 0.00432268189630805*(1 - 0.5*x1)**3*(x0 + 1)**3 - 0.0291911782061452*(1 - 0.5*x1)**2*(x0 + 1)**3*(0.25*x1 + 0.5) - 0.0121985520699155*(x0 + 1)**3*(0.5*x1 + 1)**3	
 	   #y = -0.243584378266395*(0.5 - 0.5*(3*x))*(0.5 - 0.25*(3*y))*((3*x) + 1)^2*(0.5*(3*y) + 1)^2 + 0.0556068616975541*(0.5 - 0.5*(3*x))*(1 - 0.5*(3*y))^3*((3*x) + 1)^2 + 0.0150306530769696*(0.5 - 0.5*(3*x))*(1 - 0.5*(3*y))^2*((3*x) + 1)^2*(0.25*(3*y) + 0.5) - 0.0647859069392533*(0.5 - 0.5*(3*x))*((3*x) + 1)^2*(0.5*(3*y) + 1)^3 + 0.0179892008503783*(0.5 - 0.25*(3*y))*(1 - (3*x))^3*(0.5*(3*y) + 1)^2 - 0.0566021333753245*(0.5 - 0.25*(3*y))*(1 - (3*x))^2*(0.5*(3*x) + 0.5)*(0.5*(3*y) + 1)^2 - 0.0572932821028275*(0.5 - 0.25*(3*y))*((3*x) + 1)^3*(0.5*(3*y) + 1)^2 + 0.0133833782979996*(1 - (3*x))^3*(1 - 0.5*(3*y))^3 + 0.0675801821310418*(1 - (3*x))^3*(1 - 0.5*(3*y))^2*(0.25*(3*y) + 0.5) - 0.0044270349407234*(1 - (3*x))^3*(0.5*(3*y) + 1)^3 + 0.071725194207449*(1 - (3*x))^2*(1 - 0.5*(3*y))^3*(0.5*(3*x) + 0.5) + 0.272500805218411*(1 - (3*x))^2*(1 - 0.5*(3*y))^2*(0.5*(3*x) + 0.5)*(0.25*(3*y) + 0.5) - 0.0530354952052034*(1 - (3*x))^2*(0.5*(3*x) + 0.5)*(0.5*(3*y) + 1)^3 + 0.00432268189630805*(1 - 0.5*(3*y))^3*((3*x) + 1)^3 - 0.0291911782061452*(1 - 0.5*(3*y))^2*((3*x) + 1)^3*(0.25*(3*y) + 0.5) - 0.0121985520699155*((3*x) + 1)^3*(0.5*(3*y) + 1)^3
-
 	elif x0 > 1: #[3, 3] err 0.0415
 		y = -3.66677005458096*(0.5 - 0.25*x1)*(1 - 0.5*x0)**3*(0.5*x1 + 1)**2 - 6.19193016324512*(0.5 - 0.25*x1)*(1 - 0.5*x0)**2*(1.0*x0 - 1.0)*(0.5*x1 + 1)**2 - 1.64930671669314*(0.5 - 0.25*x1)*(2.0 - 1.0*x0)*(1.0*x0 - 1.0)**2*(0.5*x1 + 1)**2 - 0.572970428326949*(0.5 - 0.25*x1)*(1.0*x0 - 1.0)**3*(0.5*x1 + 1)**2 + 0.276651641363715*(1 - 0.5*x0)**3*(1 - 0.5*x1)**3 - 1.86823540519329*(1 - 0.5*x0)**3*(1 - 0.5*x1)**2*(0.25*x1 + 0.5) - 0.780707332474591*(1 - 0.5*x0)**3*(0.5*x1 + 1)**3 + 0.209656119344319*(1 - 0.5*x0)**2*(1 - 0.5*x1)**3*(1.0*x0 - 1.0) - 3.51295090211393*(1 - 0.5*x0)**2*(1 - 0.5*x1)**2*(1.0*x0 - 1.0)*(0.25*x1 + 0.5) - 1.22561406884481*(1 - 0.5*x0)**2*(1.0*x0 - 1.0)*(0.5*x1 + 1)**3 - 0.00100089274721571*(1 - 0.5*x1)**3*(2.0 - 1.0*x0)*(1.0*x0 - 1.0)**2 - 0.0192041118681437*(1 - 0.5*x1)**3*(1.0*x0 - 1.0)**3 - 1.0284199907425*(1 - 0.5*x1)**2*(2.0 - 1.0*x0)*(1.0*x0 - 1.0)**2*(0.25*x1 + 0.5) - 0.38295897095889*(1 - 0.5*x1)**2*(1.0*x0 - 1.0)**3*(0.25*x1 + 0.5) - 0.319943178077135*(2.0 - 1.0*x0)*(1.0*x0 - 1.0)**2*(0.5*x1 + 1)**3 - 0.110331304802397*(1.0*x0 - 1.0)**3*(0.5*x1 + 1)**3
 	   #y = -3.66677005458096*(0.5 - 0.25*(3*y))*(1 - 0.5*(3*x))^3*(0.5*(3*y) + 1)^2 - 6.19193016324512*(0.5 - 0.25*(3*y))*(1 - 0.5*(3*x))^2*(1.0*(3*x) - 1.0)*(0.5*(3*y) + 1)^2 - 1.64930671669314*(0.5 - 0.25*(3*y))*(2.0 - 1.0*(3*x))*(1.0*(3*x) - 1.0)^2*(0.5*(3*y) + 1)^2 - 0.572970428326949*(0.5 - 0.25*(3*y))*(1.0*(3*x) - 1.0)^3*(0.5*(3*y) + 1)^2 + 0.276651641363715*(1 - 0.5*(3*x))^3*(1 - 0.5*(3*y))^3 - 1.86823540519329*(1 - 0.5*(3*x))^3*(1 - 0.5*(3*y))^2*(0.25*(3*y) + 0.5) - 0.780707332474591*(1 - 0.5*(3*x))^3*(0.5*(3*y) + 1)^3 + 0.209656119344319*(1 - 0.5*(3*x))^2*(1 - 0.5*(3*y))^3*(1.0*(3*x) - 1.0) - 3.51295090211393*(1 - 0.5*(3*x))^2*(1 - 0.5*(3*y))^2*(1.0*(3*x) - 1.0)*(0.25*(3*y) + 0.5) - 1.22561406884481*(1 - 0.5*(3*x))^2*(1.0*(3*x) - 1.0)*(0.5*(3*y) + 1)^3 - 0.00100089274721571*(1 - 0.5*(3*y))^3*(2.0 - 1.0*(3*x))*(1.0*(3*x) - 1.0)^2 - 0.0192041118681437*(1 - 0.5*(3*y))^3*(1.0*(3*x) - 1.0)^3 - 1.0284199907425*(1 - 0.5*(3*y))^2*(2.0 - 1.0*(3*x))*(1.0*(3*x) - 1.0)^2*(0.25*(3*y) + 0.5) - 0.38295897095889*(1 - 0.5*(3*y))^2*(1.0*(3*x) - 1.0)^3*(0.25*(3*y) + 0.5) - 0.319943178077135*(2.0 - 1.0*(3*x))*(1.0*(3*x) - 1.0)^2*(0.5*(3*y) + 1)^3 - 0.110331304802397*(1.0*(3*x) - 1.0)^3*(0.5*(3*y) + 1)^3
@@ -172,6 +180,7 @@ if __name__ == '__main__':
 	import time
 	# print(where_inv_polySOS([-1.65, 1.8]))
 	# assert False
+	
 	# for trained multuple actors	
 	# agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=25, fc2_units=None, individual=False)
 	# for individual distilled controller
@@ -181,14 +190,14 @@ if __name__ == '__main__':
 	# assert False
 
 	#random intial state test to generate the scatter plot of safe and unsafe region
-	state_list, fuel_list, _ = test(agent, './ICCAD_models/Individual.pth', renew=True, state_list=[])
+	state_list, fuel_list, _ = test(agent, './models/Individual.pth', renew=True, state_list=[])
 	print(len(fuel_list), np.mean(fuel_list))
 	np.save('initial_state_500_poly8_err0.05.npy', np.array(state_list))
 
 	# To compare the individual controller and Bernstein polynomial approximation controlled trajectory
-	# state_list, _, indi_trajectory = test(agent, './ICCAD_models/Individual.pth', renew=True, state_list=[], 
+	# state_list, _, indi_trajectory = test(agent, './models/Individual.pth', renew=True, state_list=[], 
 	# 	EP_NUM=1, random_initial_test=False)
-	# state_list, _, BP_trajectory = test(agent, './ICCAD_models/Individual.pth', renew=False, state_list=state_list, 
+	# state_list, _, BP_trajectory = test(agent, './models/Individual.pth', renew=False, state_list=state_list, 
 	# 	EP_NUM=1, random_initial_test=False, BP=True)
 	# plt.plot(indi_trajectory[:, 0], indi_trajectory[:, 1], label='individual')
 	# plt.plot(BP_trajectory[:, 0], BP_trajectory[:, 1], label='BP')

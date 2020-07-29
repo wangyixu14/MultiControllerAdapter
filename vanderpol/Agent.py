@@ -1,3 +1,4 @@
+# DDPG algorithm for continuous control.
 import numpy as np
 import random
 import copy

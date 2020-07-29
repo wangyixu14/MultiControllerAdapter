@@ -1,9 +1,11 @@
+# this file is to record the NN controller parameters into a txt file to be used 
+# for Bernstein polynomial approximation by the tool of ReachNN
 from Model import IndividualModel
 import torch
 import numpy as np
 
 trained_model = IndividualModel(state_size=2, action_size=1, seed=0, fc1_units=50)
-trained_model.load_state_dict(torch.load('./ICCAD_models/Individual.pth'))
+trained_model.load_state_dict(torch.load('./models/Individual.pth'))
 trained_model.eval()
 bias_list = []
 weight_list = []
