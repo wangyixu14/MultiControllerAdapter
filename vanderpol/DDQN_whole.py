@@ -282,13 +282,6 @@ if __name__ == '__main__':
 	# train_adapter()	
 	ADAPTER_NAME = './models/adapter.pth'
 	INDI_NAME = './models/Individual.pth'
-	# # distill(ADAPTER_NAME, INDI_NAME)
 
-	# sw_state = np.load('initial_state_500_valuebased.npy')
-	sw_state = np.load('initial_state_500_poly10_err0.05.npy')
-	sw_reward, sw_fuel, _  = test(ADAPTER_NAME, state_list=sw_state, renew=False, mode='switch')
-	d1_reward, d1_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d1')
-	d2_reward, d2_fuel, _ = test(None, state_list=sw_state, renew=False, mode='d2')
-	indi_reward, indi_fuel, _ = test(None, state_list=sw_state, renew=False, mode='individual', INDI_NAME=INDI_NAME)
-	print(np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), np.mean(indi_fuel),
-		len(sw_fuel), len(d1_fuel), len(d2_fuel), len(indi_fuel))
+	sw_reward, sw_fuel, _  = test(ADAPTER_NAME, state_list=[], renew=True, mode='switch')
+	print(np.mean(sw_fuel), len(sw_fuel))
