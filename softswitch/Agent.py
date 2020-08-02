@@ -33,9 +33,9 @@ class Weight_adapter(nn.Module):
         self.num_actions = num_actions
         self.layers = nn.Sequential(
             nn.Linear(num_inputs, 128),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(128, 128),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(128, num_actions),
             nn.Tanh()
         )
@@ -75,7 +75,7 @@ class Agent():
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
         # Noise process
-        self.noise = OUNoise(action_size, random_seed, mu=0, theta=0.2, sigma=0.4)
+        self.noise = OUNoise(action_size, random_seed, mu=0, theta=0.15, sigma=0.2)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
@@ -109,12 +109,13 @@ class Agent():
         self.actor_local.eval()
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()
-
+        #print(action)
         self.actor_local.train()
 
         if add_noise:
-            action += self.epsilon * self.noise.sample()
-
+            tem_noise = self.noise.sample()
+            action += self.epsilon * tem_noise
+        # print(tem_noise, np.clip(action, -1, 1))
         return np.clip(action, -1, 1)
 
     def reset(self):

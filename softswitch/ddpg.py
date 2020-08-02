@@ -26,9 +26,9 @@ def mkdir(path):
 	if not folder:
 		os.makedirs(path)
 
-def save_model(i_episode):
+def save_model(i_episode, score_average):
 	print("Model Save...")
-	if i_episode >= 2400:
+	if score_average > 300:
 		torch.save(agent.actor_local.state_dict(), './actors/actor_'+str(i_episode)+ '.pth')
 
 # train controller for the env system
@@ -44,7 +44,7 @@ def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
 		timestep = time.time()
 		for t in range(max_t):
 			action = agent.act(state)[0]
-			next_state, reward, done = env.step(action, smoothness=0.25)
+			next_state, reward, done = env.step(action, smoothness=0.3)
 			agent.step(state, action, reward, next_state, done, t)
 			score += reward
 			state = next_state            
@@ -56,7 +56,7 @@ def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
 		score_average = np.mean(scores_deque)
 		
 		if i_episode % save_every == 0:
-			save_model(i_episode)
+			save_model(i_episode, score_average)
 		
 		if i_episode % print_every == 0:
 			print('\rEpisode {}, Average Score: {:.2f}, Current Score:{:.2f}, Max: {:.2f}, Min: {:.2f}, Epsilon: {:.2f}, Momery:{:.1f}'\
@@ -194,7 +194,7 @@ if __name__ == '__main__':
 	# assert False
 
 	#random intial state test to generate the scatter plot of safe and unsafe region
-	state_list, fuel_list, trajectory = test(agent, './actors/actor_2800.pth', renew=True, state_list=[])
+	state_list, fuel_list, trajectory = test(agent, './actors/actor_2200.pth', renew=True, state_list=[])
 	print(len(fuel_list), np.mean(fuel_list))
 	plt.plot(trajectory[:, 0], trajectory[:, 1])
 	plt.savefig('actor_traj.png')
