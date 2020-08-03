@@ -25,7 +25,7 @@ from Agent import Agent, Weight_adapter
 weight = float(sys.argv[2])
 print(weight)
 
-EXP1 = True
+EXP1 = False
 
 class ReplayBuffer(object):
 	def __init__(self, capacity):
@@ -130,7 +130,7 @@ def compute_td_loss(model, target_model, batch_size, optimizer):
 
 # train the adapter by Double DQN for multiple controllers switching
 def train_adapter_hard():
-	mkdir('./0801adapter')
+	mkdir('./adapter')
 	env = Osillator()
 	model = DQN(2, 2).to(device)
 	target_model = DQN(2, 2).to(device)
@@ -175,7 +175,7 @@ def train_adapter_hard():
 		print('epoch:', ep, 'reward:', ep_r, 'average reward:', np.mean(ep_reward),
 					 'fuel cost:', sum(fuel_list[-t - 1:]), 'epsilon:', epsilon, len(replay_buffer)) 
 		if ep >= 100 and ep % 100 == 0:
-			torch.save(model.state_dict(), './0801adapter/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
+			torch.save(model.state_dict(), './adapter/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
 
 # train the adapter for weight-sum the control inputs by multiple controllers
 def train_adapter_weight(EP_NUM=2000):
@@ -212,6 +212,20 @@ def train_adapter_weight(EP_NUM=2000):
 				  .format(ep, score_average,  scores[-1], np.max(scores), np.min(scores), agent.epsilon, len(agent.memory)), end="\n")     
 		if ep > 0 and ep % 100 == 0:
 			torch.save(agent.actor_local.state_dict(), './adapter_soft/adapter_'+str(ep)+'_'+str(weight)+ '.pth')
+
+def plan(state, ca1, ca2):
+	u1 = ca1*20
+	u2 = ca2*20
+	x0 = state[0] + 0.05 * state[1]
+	x1 = state[1] + 0.05*((1-state[0]**2)*state[1] - state[0] + u1)
+	
+	x2 = state[0] + 0.05 * state[1]
+	x3 = state[1] + 0.05*((1-state[0]**2)*state[1] - state[0] + u2)
+
+	if x0**2 + x1**2 < x2**2 + x3**2:
+		return ca1 
+	else:
+		return ca2 
 
 # test for 500 cases with their safely control rate and energy consumption
 def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NAME=None):
@@ -269,7 +283,12 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			elif mode == 'average':
 				ca1 = model_1(state).cpu().data.numpy()[0]
 				ca2 = model_2(state).cpu().data.numpy()[0]
-				control_action = (ca1 + ca2)/2				
+				control_action = (ca1 + ca2)/2
+			elif mode == 'planning':
+				ca1 = model_1(state).cpu().data.numpy()[0]
+				ca2 = model_2(state).cpu().data.numpy()[0]
+				control_action = plan(state, ca1, ca2) 
+
 			elif mode == 'd1':
 				control_action = model_1(state).cpu().data.numpy()[0]
 		
@@ -301,12 +320,12 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			plt.plot(trajectory[:, 0], trajectory[:, 1], label=mode)
 			plt.legend()
 			plt.savefig('trajectory.png')
-	# safe = np.array(safe)
-	# unsafe = np.array(unsafe)
-	# plt.figure()
-	# plt.scatter(safe[:, 0], safe[:, 1], c='green')
-	# plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
-	# plt.savefig(mode+'.png')
+	safe = np.array(safe)
+	unsafe = np.array(unsafe)
+	plt.figure()
+	plt.scatter(safe[:, 0], safe[:, 1], c='green')
+	plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
+	plt.savefig(mode+'.png')
 	return ep_reward, np.array(fuel_list), state_list
 
 # distill to get an individual controller supervised by multiple controller with the adapter trained by Double DQN
@@ -347,7 +366,8 @@ def distill(adapter_name, INDI_NAME):
 	torch.save(Individual.state_dict(), INDI_NAME)
 
 if __name__ == '__main__':
-	# train_adapter_weight()
+	#train_adapter_weight()
+	# train_adapter_hard()
 	# assert False	
 	# INDI_NAME = './models/Individual.pth'
 	# state_list = np.load('initial_state_500.npy')
@@ -357,12 +377,13 @@ if __name__ == '__main__':
 		_, weight_fuel, state_list  = test('./0731adapter/adapter_300_exce.pth', state_list=[], renew=True, mode='weight')
 		_, sw_fuel, _  = test(ADAPTER_NAME, state_list=state_list, renew=False, mode='switch')
 	else:
+		ADAPTER_NAME = './0801adapter/ddqn_300_1.0.pth'
 		_, weight_fuel, state_list  = test('./0801adapter/adapter_1700_1.0_extreme.pth', state_list=[], renew=True, mode='weight')
-		# _, sw_fuel, _  = test(ADAPTER_NAME, state_list=state_list, renew=False, mode='switch')
-		sw_fuel = []
-	
+		_, sw_fuel, _  = test(ADAPTER_NAME, state_list=state_list, renew=False, mode='switch')
+		# sw_fuel = []
+	_, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	_, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
 	_, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
 	_, d2_fuel, _  = test(None, state_list=state_list, renew=False, mode='d2')
-	print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-		 len(weight_fuel), len(sw_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
+	print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
+		 len(weight_fuel), len(sw_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
