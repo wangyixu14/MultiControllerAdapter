@@ -25,8 +25,7 @@ from Agent import Agent, Weight_adapter
 weight = float(sys.argv[2])
 print(weight)
 
-EXP1 = False
-
+EXP1 = True
 class ReplayBuffer(object):
 	def __init__(self, capacity):
 		self.buffer = deque(maxlen=capacity)
@@ -320,37 +319,34 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			plt.plot(trajectory[:, 0], trajectory[:, 1], label=mode)
 			plt.legend()
 			plt.savefig('trajectory.png')
-	safe = np.array(safe)
-	unsafe = np.array(unsafe)
-	plt.figure()
-	plt.scatter(safe[:, 0], safe[:, 1], c='green')
-	plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
-	plt.savefig(mode+'.png')
+	# safe = np.array(safe)
+	# unsafe = np.array(unsafe)
+	# plt.figure()
+	# plt.scatter(safe[:, 0], safe[:, 1], c='green')
+	# plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
+	# plt.savefig(mode+'.png')
 	return ep_reward, np.array(fuel_list), state_list
 
 # distill to get an individual controller supervised by multiple controller with the adapter trained by Double DQN
 def distill(adapter_name, INDI_NAME):
+	assert EXP1 == True
 	optimizer = torch.optim.SGD(Individual.parameters(), lr = 0.001, momentum=0.9)
 	loss_func = torch.nn.MSELoss()
 	env = Osillator()
-	model = DQN(2, 2).to(device)
-	EP_NUM = 500
-
+	model = Weight_adapter(2, 2).to(device)
 	model.load_state_dict(torch.load(adapter_name))
+	EP_NUM = 500
 
 	for ep in range(EP_NUM):
 		ep_loss = 0
 		state = env.reset()
 		for t in range(env.max_iteration):
 			state = torch.from_numpy(state).float().to(device)
-			action = model.act(state, epsilon=0)
+			action = model(state).cpu().data.numpy()
 			with torch.no_grad():
-				if action == 0:
-					control_action = model_1(state)
-				elif action == 1:
-					control_action = model_2(state)
-
-			control_action.requires_grad = False
+				ca1 = model_1(state)
+				ca2 = model_2(state)
+			control_action = ca1*action[0] + ca2*action[1]
 			prediction = Individual(state)
 			loss = loss_func(prediction, control_action) 
 			optimizer.zero_grad()
@@ -362,28 +358,31 @@ def distill(adapter_name, INDI_NAME):
 			state = next_state
 			if done:
 				break
-		print(ep_loss)
+		print(ep_loss, t)
 	torch.save(Individual.state_dict(), INDI_NAME)
 
 if __name__ == '__main__':
 	#train_adapter_weight()
 	# train_adapter_hard()
-	# assert False	
-	# INDI_NAME = './models/Individual.pth'
-	# state_list = np.load('initial_state_500.npy')
+	# assert False
+	INDI_NAME = './models/Indi_exp1.pth'
+	# distill('./0731adapter/adapter_300_exce.pth', INDI_NAME)	
+	# assert False
 
 	if EXP1:
 		ADAPTER_NAME = './0731adapter/ddqn_1200_1.0_exce.pth'
 		_, weight_fuel, state_list  = test('./0731adapter/adapter_300_exce.pth', state_list=[], renew=True, mode='weight')
 		_, sw_fuel, _  = test(ADAPTER_NAME, state_list=state_list, renew=False, mode='switch')
+		_, indi_fuel, _ = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME=INDI_NAME)
 	else:
 		ADAPTER_NAME = './0801adapter/ddqn_300_1.0.pth'
 		_, weight_fuel, state_list  = test('./0801adapter/adapter_1700_1.0_extreme.pth', state_list=[], renew=True, mode='weight')
 		_, sw_fuel, _  = test(ADAPTER_NAME, state_list=state_list, renew=False, mode='switch')
-		# sw_fuel = []
+	
 	_, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	_, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
 	_, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
 	_, d2_fuel, _  = test(None, state_list=state_list, renew=False, mode='d2')
 	print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
 		 len(weight_fuel), len(sw_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
+	print(np.mean(indi_fuel), len(indi_fuel))

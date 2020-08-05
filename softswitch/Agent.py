@@ -46,7 +46,7 @@ class Weight_adapter(nn.Module):
 class Agent():
     """Interacts with and learns from the environment."""
 
-    def __init__(self, state_size, action_size, random_seed, fc1_units, fc2_units, weighted=False):
+    def __init__(self, state_size, action_size, random_seed, fc1_units, fc2_units, weighted=False, individual=False):
         """Initialize an Agent object.
 
         Params
@@ -63,7 +63,10 @@ class Agent():
         # Actor Network (w/ Target Network)
         if weighted:
             self.actor_local = Weight_adapter(state_size, action_size).to(device)
-            self.actor_target = Weight_adapter(state_size, action_size).to(device)            
+            self.actor_target = Weight_adapter(state_size, action_size).to(device)
+        if individual:
+            self.actor_local = IndividualModel(state_size, action_size, random_seed, fc1_units).to(device)
+            self.actor_target = IndividualModel(state_size, action_size, random_seed, fc1_units).to(device)                        
         else:
             self.actor_local = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)
             self.actor_target = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)

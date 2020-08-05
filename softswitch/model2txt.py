@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 trained_model = IndividualModel(state_size=2, action_size=1, seed=0, fc1_units=50)
-trained_model.load_state_dict(torch.load('./models/Individual.pth'))
+trained_model.load_state_dict(torch.load('./models/Indi_exp1.pth'))
 trained_model.eval()
 bias_list = []
 weight_list = []
