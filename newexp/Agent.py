@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn as nn
 
-BUFFER_SIZE = int(2e4)  # replay buffer size
+BUFFER_SIZE = int(1e4)  # replay buffer size
 BATCH_SIZE = 128         # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters

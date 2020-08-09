@@ -8,11 +8,12 @@ import numpy as np
 from collections import deque
 import matplotlib.pyplot as plt
 from interval import Interval
-from env import Osillator
+from env import Newenv
 import scipy.io as io
 from scipy.interpolate import interp2d
+from mpl_toolkits.mplot3d import Axes3D
 
-env = Osillator()
+env = Newenv()
 
 import os
 import sys
@@ -21,6 +22,8 @@ if module_path not in sys.path:
 	sys.path.append(module_path)
 from Agent import Agent
 
+SMOOTH=0.5
+
 def mkdir(path):
 	folder = os.path.exists(path)
 	if not folder:
@@ -28,8 +31,8 @@ def mkdir(path):
 
 def save_model(i_episode, score_average):
 	print("Model Save...")
-	if score_average > 300:
-		torch.save(agent.actor_local.state_dict(), './actors/actor_'+str(i_episode)+ '.pth')
+	if i_episode > 2000 and i_episode % 200 == 0:
+		torch.save(agent.actor_local.state_dict(), './actors/actor_'+str(SMOOTH)+str(i_episode)+ '.pth')
 
 # train controller for the env system
 def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
@@ -44,7 +47,7 @@ def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
 		timestep = time.time()
 		for t in range(max_t):
 			action = agent.act(state)[0]
-			next_state, reward, done = env.step(action, smoothness=0.3)
+			next_state, reward, done = env.step(action, smoothness=SMOOTH)
 			agent.step(state, action, reward, next_state, done, t)
 			score += reward
 			state = next_state            
@@ -60,7 +63,7 @@ def ddpg(n_episodes=10000, max_t=200, print_every=1, save_every=200):
 		
 		if i_episode % print_every == 0:
 			print('\rEpisode {}, Average Score: {:.2f}, Current Score:{:.2f}, Max: {:.2f}, Min: {:.2f}, Epsilon: {:.2f}, Momery:{:.1f}'\
-				  .format(i_episode, score_average,  scores[-1], np.max(scores), np.min(scores), agent.epsilon, len(agent.memory)), end="\n")     
+				  .format(i_episode, score_average,  scores[-1], np.max(scores), np.min(scores), agent.epsilon, len(agent.memory)), t, end="\n")     
 					
 	return scores
 
@@ -78,15 +81,15 @@ def test(agent, filename, renew, state_list=[], EP_NUM=500, random_initial_test=
 		total_reward = 0
 		fuel = 0
 		if renew:
-			while True:
-				state = env.reset()
-				if where_inv_valuebased(state):
-					break
-			# state = env.reset()
+			# while True:
+			# 	state = env.reset()
+			# 	if where_inv_valuebased(state):
+			# 		break
+			state = env.reset()
 			state_list.append(state)
 		else: 
 			assert len(state_list) == EP_NUM
-			state = env.reset(state_list[ep][0], state_list[ep][1])
+			state = env.reset(state_list[ep][0], state_list[ep][1], state_list[ep][2])
 		# print(state)
 		if ep == 0:
 			trajectory.append(state)
@@ -99,7 +102,7 @@ def test(agent, filename, renew, state_list=[], EP_NUM=500, random_initial_test=
 			if BP:
 				next_state, reward, done = env.step(BP_action)
 			else:
-				next_state, reward, done = env.step(action)
+				next_state, reward, done = env.step(action, smoothness=SMOOTH)
 			total_reward += reward
 			state = next_state
 			if ep == 0:
@@ -112,12 +115,14 @@ def test(agent, filename, renew, state_list=[], EP_NUM=500, random_initial_test=
 		else:
 			unsafe.append(state_list[ep]) 
 			print(ep, state_list[ep])
+	# fig= plt.figure()
+	# ax = Axes3D(fig)		
 	safe = np.array(safe)
 	unsafe = np.array(unsafe)
 	if random_initial_test:
 		plt.scatter(safe[:, 0], safe[:, 1], c='green')
 		if unsafe.shape[0] > 0:
-			plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red', marker='*')
+			plt.scatter(unsafe[:, 0], unsafe[:, 1],  c='red')
 		plt.savefig(filename+'.png')
 	return state_list, fuel_list, np.array(trajectory)
 
@@ -161,18 +166,18 @@ if __name__ == '__main__':
 	# for trained multuple actors	
 	# agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=25, fc2_units=None, individual=False)
 	# for individual distilled controller
-	agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=50, fc2_units=None, individual=True)
+	agent = Agent(state_size=3, action_size=1, random_seed=random_seed, fc1_units=50, fc2_units=None, individual=True)
 
-	scores = ddpg()
-	assert False
+	# scores = ddpg()
+	# assert False
 
 	#random intial state test to generate the scatter plot of safe and unsafe region
-	state_list, fuel_list, trajectory = test(agent, './models/Indi_exp1.pth', renew=True, state_list=[])
+	state_list = np.load('init_state.npy')
+	_, fuel_list, trajectory = test(agent, './actors/actor_0.53200.pth', renew=False, state_list=state_list)
 	print(len(fuel_list), np.mean(fuel_list))
 	plt.plot(trajectory[:, 0], trajectory[:, 1])
 	plt.savefig('actor_traj.png')
-	# np.save('initial_state_500_poly10_err0.05.npy', np.array(state_list))
-
+	# np.save('init_state.npy', np.array(state_list))
 	# To compare the individual controller and Bernstein polynomial approximation controlled trajectory
 	# state_list, _, indi_trajectory = test(agent, './models/Indi_exp1.pth', renew=True, state_list=[], 
 	# 	EP_NUM=1, random_initial_test=False)

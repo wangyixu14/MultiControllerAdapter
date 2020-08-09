@@ -186,10 +186,10 @@ if __name__ == '__main__':
 	# for trained multuple actors	
 	# agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=25, fc2_units=None, individual=False)
 	# for individual distilled controller
-	agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=50, fc2_units=None, individual=True)
+	agent = Agent(state_size=2, action_size=1, random_seed=random_seed, fc1_units=50, fc2_units=None)
 
-	# scores = ddpg()
-	# assert False
+	scores = ddpg()
+	assert False
 
 	#random intial state test to generate the scatter plot of safe and unsafe region
 	state_list, fuel_list, _ = test(agent, './models/Individual.pth', renew=True, state_list=[])

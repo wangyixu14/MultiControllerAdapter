@@ -63,9 +63,10 @@ class Osillator:
         disturbance = np.random.uniform(-0.05, 0.05)
         u = action * self.u_range
         u = np.clip(u, -20, 20)
+
         x0_tmp = self.state[0] + self.deltaT * self.state[1]
         x1_tmp = self.state[1] + self.deltaT*((1-self.state[0]**2)*self.state[1] - self.state[0] + u) + disturbance
-        
+        # print(u, x0_tmp, x1_tmp)
         self.t = self.t + 1
         reward = self.design_reward(u, self.u_last, smoothness)
         self.u_last = u
