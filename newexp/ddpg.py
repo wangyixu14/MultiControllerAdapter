@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
 	#random intial state test to generate the scatter plot of safe and unsafe region
 	state_list = np.load('init_state.npy')
-	_, fuel_list, trajectory = test(agent, './actors/actor_0.53200.pth', renew=False, state_list=state_list)
+	_, fuel_list, trajectory = test(agent, './actors/actor_1.0_2800.pth', renew=False, state_list=state_list)
 	print(len(fuel_list), np.mean(fuel_list))
 	plt.plot(trajectory[:, 0], trajectory[:, 1])
 	plt.savefig('actor_traj.png')
