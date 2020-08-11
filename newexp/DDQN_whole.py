@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from Model import Actor, IndividualModel
+from Model import Actor, IndividualModel, Individualdistill
 import time
 import torch.optim as optim
 import random
@@ -62,7 +62,7 @@ model_2 = IndividualModel(state_size=3, action_size=1, seed=0, fc1_units=50).to(
 model_2.load_state_dict(torch.load("./actors/actor_1.0_2800.pth"))
 model_2.eval()
 
-Individual = IndividualModel(state_size=3, action_size=1, seed=0).to(device)
+Individual = Individualdistill(state_size=3, action_size=1, seed=0).to(device)
 
 agent = Agent(state_size=3, action_size=2, random_seed=0, fc1_units=None, fc2_units=None, weighted=True)
 
@@ -320,13 +320,12 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 
 # distill to get an individual controller supervised by multiple controller with the adapter trained by Double DQN
 def distill(adapter_name, INDI_NAME):
-	assert EXP1 == True
-	optimizer = torch.optim.SGD(Individual.parameters(), lr = 0.001, momentum=0.9)
+	optimizer = torch.optim.Adam(Individual.parameters())
 	loss_func = torch.nn.MSELoss()
-	env = Osillator()
+	env = Newenv()
 	model = Weight_adapter(3, 2).to(device)
 	model.load_state_dict(torch.load(adapter_name))
-	EP_NUM = 500
+	EP_NUM = 1500
 
 	for ep in range(EP_NUM):
 		ep_loss = 0
@@ -345,7 +344,7 @@ def distill(adapter_name, INDI_NAME):
 			optimizer.step()
 			ep_loss += loss.item()     
 
-			next_state, reward, done = env.step(control_action.cpu().data.numpy()[0])
+			next_state, reward, done = env.step(control_action.cpu().data.numpy()[0], smoothness=1)
 			state = next_state
 			if done:
 				break
@@ -357,8 +356,11 @@ if __name__ == '__main__':
 	# assert False
 	# train_adapter_hard()
 	# assert False
-	# state_list = np.load('init_state_1.npy')
-	_, weight_fuel, state_list  = test('./adapter_soft/adapter_1600_5.0_exce.pth', state_list=[], renew=True, mode='weight')
+	# distill('./adapter_soft/adapter_1600_5.0_exce.pth', 'Indimodel.pth')
+	# assert False
+	state_list = np.load('init_state_1.npy')
+	_, weight_fuel, _  = test('./adapter_soft/adapter_1600_5.0_exce.pth', state_list=state_list, renew=False, mode='weight')
+	_, indi_fuel, _ = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='Indimodel.pth')
 	# _, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	# _, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
 	_, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
@@ -366,5 +368,5 @@ if __name__ == '__main__':
 	# print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
 	# 	 len(weight_fuel), len(sw_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
 	# print(np.mean(indi_fuel), len(indi_fuel))
-	print(np.mean(weight_fuel), np.mean(d1_fuel), np.mean(d2_fuel), len(weight_fuel), len(d1_fuel), len(d2_fuel))
-	np.save('init_state.npy', np.array(state_list))
+	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
+		len(weight_fuel), len(indi_fuel), len(d1_fuel), len(d2_fuel))
