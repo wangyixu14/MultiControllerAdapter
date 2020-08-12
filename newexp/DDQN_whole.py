@@ -361,12 +361,12 @@ if __name__ == '__main__':
 	state_list = np.load('init_state_1.npy')
 	_, weight_fuel, _  = test('./adapter_soft/adapter_1600_5.0_exce.pth', state_list=state_list, renew=False, mode='weight')
 	_, indi_fuel, _ = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='Indimodel.pth')
-	# _, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
-	# _, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
+	_, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
+	_, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
 	_, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
 	_, d2_fuel, _  = test(None, state_list=state_list, renew=False, mode='d2')
-	# print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-	# 	 len(weight_fuel), len(sw_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
+	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
+		 len(weight_fuel), len(indi_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
 	# print(np.mean(indi_fuel), len(indi_fuel))
-	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-		len(weight_fuel), len(indi_fuel), len(d1_fuel), len(d2_fuel))
+	# print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
+	# 	len(weight_fuel), len(indi_fuel), len(d1_fuel), len(d2_fuel))
