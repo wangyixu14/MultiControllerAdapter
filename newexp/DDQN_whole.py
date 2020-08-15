@@ -21,6 +21,7 @@ import torch.autograd as autograd
 from interval import Interval
 import os
 from Agent import Agent, Weight_adapter
+from mpl_toolkits.mplot3d import Axes3D
 
 weight = float(sys.argv[2])
 print(weight)
@@ -242,6 +243,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 	trajectory = []
 	safe = []
 	unsafe = []
+	control_action_list = []
 	for ep in range(EP_NUM):
 		if renew:
 			state = env.reset()
@@ -271,7 +273,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 				ca2 = model_2(state).cpu().data.numpy()[0]
 				control_action = action[0]*ca1 + action[1]*ca2
 				if ep == 0:
-					print(t, state, control_action, action, ca1, ca2)
+					print(t, state.cpu().data.numpy(), control_action, action)
 			elif mode == 'average':
 				ca1 = model_1(state).cpu().data.numpy()[0]
 				ca2 = model_2(state).cpu().data.numpy()[0]
@@ -287,12 +289,15 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 				control_action = model_2(state).cpu().data.numpy()[0]
 			elif mode == 'individual':
 				control_action = Individual(state).cpu().data.numpy()[0]
-
+				if ep == 0:
+					print(t, state.cpu().data.numpy(), control_action)
 			next_state, reward, done = env.step(control_action, smoothness=0.5)
-			fuel += abs(control_action) * 20
+			control_action = np.clip(control_action, -1, 1)
+			fuel += abs(control_action) * 10
 			state = next_state
 			if ep == 0:
 				trajectory.append(state)
+				control_action_list.append(control_action*10)
 			ep_r += reward
 			if done:
 				break
@@ -306,8 +311,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			unsafe.append(state_list[ep])
 		if ep == 0:
 			trajectory = np.array(trajectory)
-			# plt.figure()
-			plt.plot(trajectory[:, 0], trajectory[:, 1], label=mode)
+			ax.plot(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2], label=mode)
 			plt.legend()
 			plt.savefig('trajectory.png')
 	# safe = np.array(safe)
@@ -316,7 +320,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 	# plt.scatter(safe[:, 0], safe[:, 1], c='green')
 	# plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
 	# plt.savefig(mode+'.png')
-	return ep_reward, np.array(fuel_list), state_list
+	return ep_reward, np.array(fuel_list), state_list, control_action_list
 
 # distill to get an individual controller supervised by multiple controller with the adapter trained by Double DQN
 def distill(adapter_name, INDI_NAME):
@@ -352,6 +356,8 @@ def distill(adapter_name, INDI_NAME):
 	torch.save(Individual.state_dict(), INDI_NAME)
 
 if __name__ == '__main__':
+	fig = plt.figure(0)
+	ax = Axes3D(fig)
 	# train_adapter_weight()
 	# assert False
 	# train_adapter_hard()
@@ -359,14 +365,18 @@ if __name__ == '__main__':
 	# distill('./adapter_soft/adapter_1600_5.0_exce.pth', 'Indimodel.pth')
 	# assert False
 	state_list = np.load('init_state_1.npy')
-	_, weight_fuel, _  = test('./adapter_soft/adapter_1600_5.0_exce.pth', state_list=state_list, renew=False, mode='weight')
-	_, indi_fuel, _ = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='Indimodel.pth')
-	_, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
-	_, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
-	_, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
-	_, d2_fuel, _  = test(None, state_list=state_list, renew=False, mode='d2')
+	_, weight_fuel, state_list, weight_action  = test('./adapter_soft/adapter_1600_5.0_exce.pth', state_list=state_list, renew=False, mode='weight')
+	_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='Indimodel.pth')
+	_, plan_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='planning')
+	_, avg_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='average')
+	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
+	_, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
 	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
 		 len(weight_fuel), len(indi_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
-	# print(np.mean(indi_fuel), len(indi_fuel))
-	# print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-	# 	len(weight_fuel), len(indi_fuel), len(d1_fuel), len(d2_fuel))
+	# plt.figure()
+	# plt.plot(weight_action, label='weighted')
+	# plt.plot(indi_action, label='individual')
+	# plt.legend()
+	# plt.savefig('epoch_control.png')
+	# print(np.mean(weight_fuel), np.mean(indi_fuel), 
+	# 	len(weight_fuel), len(indi_fuel))

@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from Model import Actor, IndividualModel
+from Model import Actor, IndividualModel, Individualdistill
 import time
 import torch.optim as optim
 import random
@@ -67,7 +67,7 @@ else:
 	model_2.load_state_dict(torch.load("./0801actors/actor_1400.pth"))
 model_2.eval()
 
-Individual = IndividualModel(state_size=2, action_size=1, seed=0).to(device)
+Individual = Individualdistill(state_size=2, action_size=1, seed=0).to(device)
 
 agent = Agent(state_size=2, action_size=2, random_seed=0, fc1_units=None, fc2_units=None, weighted=True)
 
@@ -231,7 +231,7 @@ def plan(state, ca1, ca2):
 def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NAME=None):
 	print(mode)
 	env = Osillator()
-	EP_NUM = 1
+	EP_NUM = 500
 	if mode == 'switch':
 		model = DQN(2, 2).to(device)
 		model.load_state_dict(torch.load(adapter_name))
@@ -249,7 +249,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 	unsafe = []
 	for ep in range(EP_NUM):
 		if renew:
-			state = env.reset(-1.3, -2)
+			state = env.reset()
 			state_list.append(state)
 		else:
 			assert len(state_list) == EP_NUM
@@ -288,14 +288,15 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 
 			elif mode == 'd1':
 				control_action = model_1(state).cpu().data.numpy()[0]
-				print(t, state, control_action)
+				
 			elif mode == 'd2':
 				control_action = model_2(state).cpu().data.numpy()[0]
-				print(t, state, control_action)
+				
 			elif mode == 'individual':
 				control_action = Individual(state).cpu().data.numpy()[0]
 
 			next_state, reward, done = env.step(control_action)
+			control_action = np.clip(control_action, -1, 1)
 			fuel += abs(control_action) * 20
 			state = next_state
 			if ep == 0:
@@ -333,8 +334,8 @@ def distill(adapter_name, INDI_NAME):
 	env = Osillator()
 	model = Weight_adapter(2, 2).to(device)
 	model.load_state_dict(torch.load(adapter_name))
-	EP_NUM = 500
-
+	EP_NUM = 1500
+	data_set = []
 	for ep in range(EP_NUM):
 		ep_loss = 0
 		state = env.reset()
@@ -345,34 +346,39 @@ def distill(adapter_name, INDI_NAME):
 				ca1 = model_1(state)
 				ca2 = model_2(state)
 			control_action = ca1*action[0] + ca2*action[1]
-			prediction = Individual(state)
-			loss = loss_func(prediction, control_action) 
-			optimizer.zero_grad()
-			loss.backward()        
-			optimizer.step()
-			ep_loss += loss.item()     
+			
+			# prediction = Individual(state)
+			# loss = loss_func(prediction, control_action) 
+			# optimizer.zero_grad()
+			# loss.backward()        
+			# optimizer.step()
+			# ep_loss += loss.item()     
 
 			next_state, reward, done = env.step(control_action.cpu().data.numpy()[0])
+			data_set.append([state.cpu().data.numpy()[0], state.cpu().data.numpy()[1], control_action.cpu().data.numpy()[0]])
+			# print(state, control_action, data_set[-1])
 			state = next_state
 			if done:
 				break
 		print(ep_loss, t)
-	torch.save(Individual.state_dict(), INDI_NAME)
-
+	# torch.save(Individual.state_dict(), INDI_NAME)
+	return np.array(data_set)
 if __name__ == '__main__':
 	#train_adapter_weight()
 	# train_adapter_hard()
 	# assert False
-	INDI_NAME = './models/Indi_exp1.pth'
-	# distill('./0731adapter/adapter_300_exce.pth', INDI_NAME)	
+	INDI_NAME = './models/direct_distill.pth'
+	# dataset = distill('./0731adapter/adapter_300_exce.pth', INDI_NAME)
+	# np.save('dataset.npy', dataset)
+	# print(dataset.shape)
 	# assert False
-
+	state_list = np.load('init_state.npy')
 	if EXP1:
 		ADAPTER_NAME = './0731adapter/ddqn_1200_1.0_exce.pth'
-		# _, sw_fuel, _  = test(ADAPTER_NAME, state_list=[], renew=True, mode='switch')
-		_, weight_fuel, state_list  = test('./0731adapter/adapter_300_exce.pth', state_list=[], renew=True, mode='weight')
+		_, weight_fuel, _  = test('./0731adapter/adapter_300_exce.pth', state_list=state_list, renew=False, mode='weight')
 		
-		# _, indi_fuel, _ = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME=INDI_NAME)
+		_, indi_fuel, _ = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME=INDI_NAME)
+		_, robust_fuel, _ = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill.pth')	
 	else:
 		ADAPTER_NAME = './0801adapter/ddqn_300_1.0.pth'
 		_, weight_fuel, state_list  = test('./0801adapter/adapter_1700_1.0_extreme.pth', state_list=[], renew=True, mode='weight')
@@ -380,9 +386,11 @@ if __name__ == '__main__':
 	
 	# _, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	# _, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
-	_, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
-	_, d2_fuel, _  = test(None, state_list=state_list, renew=False, mode='d2')
+	# _, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
+	# _, d2_fuel, _  = test(None, state_list=state_list, renew=False, mode='d2')
 	# print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
 	# 	 len(weight_fuel), len(sw_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
 	# print(np.mean(indi_fuel), len(indi_fuel))
-	print(np.mean(weight_fuel), np.mean(d1_fuel), np.mean(d2_fuel), len(weight_fuel), len(d1_fuel), len(d2_fuel))
+	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(robust_fuel),
+		len(weight_fuel), len(indi_fuel), len(robust_fuel))
+	# np.save('init_state.npy', np.array(state_list))
