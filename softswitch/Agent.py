@@ -4,7 +4,7 @@ import random
 import copy
 from collections import namedtuple, deque
 
-from Model import Actor, Critic, IndividualModel
+from Model import Actor, Critic, Individualtanh, Individualdistill
 from Noise import OUNoise
 
 import torch
@@ -65,8 +65,8 @@ class Agent():
             self.actor_local = Weight_adapter(state_size, action_size).to(device)
             self.actor_target = Weight_adapter(state_size, action_size).to(device)
         elif individual:
-            self.actor_local = IndividualModel(state_size, action_size, random_seed, fc1_units).to(device)
-            self.actor_target = IndividualModel(state_size, action_size, random_seed, fc1_units).to(device)                        
+            self.actor_local = Individualtanh(state_size, action_size, random_seed, fc1_units).to(device)
+            self.actor_target = Individualtanh(state_size, action_size, random_seed, fc1_units).to(device)                        
         else:
             self.actor_local = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)
             self.actor_target = Actor(state_size, action_size, random_seed, fc1_units, fc2_units).to(device)

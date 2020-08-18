@@ -1,11 +1,12 @@
 # this file is to record the NN controller parameters into a txt file to be used 
 # for Bernstein polynomial approximation by the tool of ReachNN
-from Model import IndividualModel
+from Model import Individualtanh, Individualdistill
 import torch
 import numpy as np
 
-trained_model = IndividualModel(state_size=2, action_size=1, seed=0, fc1_units=50)
-trained_model.load_state_dict(torch.load('./models/Indi_exp1.pth'))
+NAME = 'robust_distill_l2tanh'
+trained_model = Individualtanh(state_size=2, action_size=1, seed=0, fc1_units=50)
+trained_model.load_state_dict(torch.load('./'+ NAME +'.pth'))
 trained_model.eval()
 bias_list = []
 weight_list = []
@@ -24,5 +25,5 @@ for i in range(len(bias_list)):
 			all_param.append(weight_list[i][j, k])
 		all_param.append(bias_list[i][j])
 
-np.savetxt('nn_individual_relu_tanh', np.array(all_param))
+np.savetxt('./nn_'+NAME+'_relu', np.array(all_param))
 print('done')
