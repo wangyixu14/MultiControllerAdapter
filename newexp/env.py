@@ -66,10 +66,16 @@ class Newenv:
         # disturbance = np.random.uniform(-0.05, 0.05)
         u = action * self.u_range
         u = np.clip(u, -10, 10)
-
-        x0_tmp = self.state[0] + self.deltaT * (self.state[1] + 0.5*self.state[2]**2)
-        x1_tmp = self.state[1] + self.deltaT * self.state[2]
-        x2_tmp = self.state[2] + self.deltaT * u
+        Ori = False
+        if Ori:
+            x0_tmp = self.state[0] + self.deltaT * (self.state[1] + 0.5*self.state[2]**2)
+            x1_tmp = self.state[1] + self.deltaT * self.state[2]
+            x2_tmp = self.state[2] + self.deltaT * u
+        else:
+            disturbance = np.random.uniform(low=-0.01, high=0.01, size=(3,))
+            x0_tmp = self.state[0] + self.deltaT * (self.state[1] + 0.5*self.state[2]**2) + disturbance[0]
+            x1_tmp = self.state[1] + self.deltaT * self.state[2] + disturbance[1]
+            x2_tmp = self.state[2] + self.deltaT * u + disturbance[2]           
         
         self.t = self.t + 1
         reward = self.design_reward(u, self.u_last, smoothness)

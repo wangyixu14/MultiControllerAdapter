@@ -363,8 +363,10 @@ if __name__ == '__main__':
 	state_list = np.load('init_state.npy')
 	if EXP1:
 		ADAPTER_NAME = './0731adapter/ddqn_1200_1.0_exce.pth'
-		_, weight_fuel, _, w_action  = test('./0731adapter/adapter_300_exce.pth', state_list=state_list, renew=False, mode='weight')		
+		_, weight_fuel, _, w_action  = test('./0731adapter/adapter_300_exce.pth', state_list=state_list, renew=False, mode='weight')
+		# lipschitz constant 34.8		
 		_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./direct_distill_tanh.pth')
+		# lipschitz constant 15.4
 		_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill_l2tanh.pth')	
 	else:
 		ADAPTER_NAME = './0801adapter/ddqn_300_1.0.pth'
