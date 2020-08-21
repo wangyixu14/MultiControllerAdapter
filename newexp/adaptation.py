@@ -126,10 +126,10 @@ def compute_td_loss(model, target_model, batch_size, optimizer):
 
 # train the adapter by Double DQN for multiple controllers switching
 def train_adapter_hard():
-	mkdir('./adapter_ab')
-	env = Osillator()
-	model = DQN(2, 2).to(device)
-	target_model = DQN(2, 2).to(device)
+	mkdir('./adapter_hard')
+	env = Newenv()
+	model = DQN(3, 2).to(device)
+	target_model = DQN(3, 2).to(device)
 	optimizer = optim.Adam(model.parameters())
 	EP_NUM = 2001
 	frame_idx = 0
@@ -151,7 +151,7 @@ def train_adapter_hard():
 				else: 
 					assert False
 					control_action = 0
-			next_state, _, done = env.step(control_action)
+			next_state, _, done = env.step(control_action, smoothness=0.5)
 			reward = 2
 			reward -= weight * abs(control_action) * 20
 			if done and t <190:
@@ -171,7 +171,7 @@ def train_adapter_hard():
 		print('epoch:', ep, 'reward:', ep_r, 'average reward:', np.mean(ep_reward),
 					 'fuel cost:', sum(fuel_list[-t - 1:]), 'epsilon:', epsilon, len(replay_buffer)) 
 		if ep >= 100 and ep % 100 == 0:
-			torch.save(model.state_dict(), './adapter_ab/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
+			torch.save(model.state_dict(), './adapter_hard/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
 
 # train the adapter for weight-sum the control inputs by multiple controllers
 def train_adapter_weight(EP_NUM=2000):
@@ -229,7 +229,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 	env = Newenv()
 	EP_NUM = 500
 	if mode == 'switch':
-		model = DQN(2, 2).to(device)
+		model = DQN(3, 2).to(device)
 		model.load_state_dict(torch.load(adapter_name))
 	if mode == 'weight':
 		model = Weight_adapter(3, 2).to(device)
@@ -316,12 +316,12 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			ax.plot(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2], label=mode)
 			plt.legend()
 			plt.savefig('trajectory.png')
-	# safe = np.array(safe)
-	# unsafe = np.array(unsafe)
-	# plt.figure()
-	# plt.scatter(safe[:, 0], safe[:, 1], c='green')
-	# plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
-	# plt.savefig(mode+'.png')
+	safe = np.array(safe)
+	unsafe = np.array(unsafe)
+	plt.figure()
+	plt.scatter(safe[:, 0], safe[:, 1], c='green')
+	plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
+	plt.savefig('./safe_samples_region/'+ mode +'.png')
 	return ep_reward, np.array(fuel_list), state_list, control_action_list
 
 def collect_data(adapter_name):
@@ -363,6 +363,7 @@ if __name__ == '__main__':
 
 	state_list = np.load('init_state_1.npy')
 	_, weight_fuel, state_list, weight_action  = test('./adapter_soft/adapter_1600_5.0_exce.pth', state_list=state_list, renew=False, mode='weight')
+	_, sw_fuel, _, _ = test('./adapter_hard/ddqn_1700_0.5_good.pth', state_list=state_list, renew=False, mode='switch')
 	# lipschitz constant 27.8
 	_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='direct_distill_tanh.pth')
 	# lipschitz constant 15
@@ -371,17 +372,18 @@ if __name__ == '__main__':
 	
 	# _, plan_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	# _, avg_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='average')
-	# _, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
-	# _, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
+	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
+	_, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
 	# print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
 	# 	 len(weight_fuel), len(indi_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
 
-	print(np.mean(weight_fuel), np.mean(indi_fuel),  np.mean(robust_fuel), 
-		len(weight_fuel), len(indi_fuel), len(robust_fuel))
-	# plt.figure()
-	# plt.plot(weight_action, label='weighted')
-	# plt.plot(indi_action, label='individual')
-	# plt.legend()
-	# plt.savefig('epoch_control.png')
+	print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(indi_fuel),  np.mean(robust_fuel), np.mean(d1_fuel), np.mean(d2_fuel),
+		len(weight_fuel), len(sw_fuel), len(indi_fuel), len(robust_fuel), len(d1_fuel), len(d2_fuel))
+	plt.figure()
+	plt.plot(weight_action, label='weighted')
+	plt.plot(indi_action, label='direct_distill')
+	plt.plot(robust_action, label='FGSM_with_l2')
+	plt.legend()
+	plt.savefig('control_action.png')
 	# print(np.mean(weight_fuel), np.mean(indi_fuel), 
 	# 	len(weight_fuel), len(indi_fuel))

@@ -261,7 +261,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			trajectory.append(state)
 		for t in range(env.max_iteration):
 			# attack happens here
-			# state += np.random.uniform(low=-0.15, high=0.15, size=state.shape)
+			state += np.random.uniform(low=-0.15, high=0.15, size=state.shape)
 			state = torch.from_numpy(state).float().to(device)
 			if mode == 'switch':
 				action = model.act(state, epsilon=0)
@@ -322,12 +322,12 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 		# 	plt.plot(trajectory[:, 0], trajectory[:, 1], label=mode)
 		# 	plt.legend()
 		# 	plt.savefig('trajectory.png')
-	# safe = np.array(safe)
-	# unsafe = np.array(unsafe)
-	# plt.figure()
-	# plt.scatter(safe[:, 0], safe[:, 1], c='green')
-	# plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
-	# plt.savefig(mode+'.png')
+	safe = np.array(safe)
+	unsafe = np.array(unsafe)
+	plt.figure()
+	plt.scatter(safe[:, 0], safe[:, 1], c='green')
+	plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
+	plt.savefig('./safe_sample_plot/'+ mode +'.png')
 	return ep_reward, np.array(fuel_list), state_list, np.array(control_action_list)
 
 
@@ -368,6 +368,7 @@ if __name__ == '__main__':
 		_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./direct_distill_tanh.pth')
 		# lipschitz constant 15.4
 		_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill_l2tanh.pth')	
+		_, sw_fuel, _, _  = test(ADAPTER_NAME, state_list=state_list, renew=False, mode='switch')
 	else:
 		ADAPTER_NAME = './0801adapter/ddqn_300_1.0.pth'
 		_, weight_fuel, state_list  = test('./0801adapter/adapter_1700_1.0_extreme.pth', state_list=[], renew=True, mode='weight')
@@ -375,14 +376,15 @@ if __name__ == '__main__':
 	
 	# _, plan_fuel, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	# _, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
-	# _, d1_fuel, _  = test(None, state_list=state_list, renew=False, mode='d1')
-	# _, d2_fuel, _  = test(None, state_list=state_list, renew=False, mode='d2')
+	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
+	_, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
 	# print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
 	# 	 len(weight_fuel), len(sw_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
 	
-	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(robust_fuel),
-		len(weight_fuel), len(indi_fuel), len(robust_fuel))
+	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(robust_fuel), np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel),
+		len(weight_fuel), len(indi_fuel), len(robust_fuel), len(sw_fuel), len(d1_fuel), len(d2_fuel))
 	
+	plt.figure()
 	plt.plot(w_action, label='weighted')
 	plt.plot(indi_action, label='regular_distill')
 	plt.plot(robust_action, label='robust_distill')
