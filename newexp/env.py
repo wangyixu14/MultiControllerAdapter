@@ -66,7 +66,7 @@ class Newenv:
         # disturbance = np.random.uniform(-0.05, 0.05)
         u = action * self.u_range
         u = np.clip(u, -10, 10)
-        Ori = False
+        Ori = True
         if Ori:
             x0_tmp = self.state[0] + self.deltaT * (self.state[1] + 0.5*self.state[2]**2)
             x1_tmp = self.state[1] + self.deltaT * self.state[2]

@@ -37,9 +37,9 @@ def train(inputdata, label, net):
 		print(np.sum(loss_list), len(loss_list))
 	torch.save(net.state_dict(), './l2_only.pth')
 
-def fgsm(model, X, y, epsilon=0.01):
+def fgsm(model, X, y, epsilon=0.04):
     delta = torch.zeros_like(X, requires_grad=True)
-    loss = nn.MSELoss()(model(X + delta), y)
+    loss = -nn.MSELoss()(model(X + delta), y)
     loss.backward()
     return epsilon * delta.grad.detach().sign()
 
@@ -71,7 +71,7 @@ def robust_train(inputdata, label, net):
 			loss.backward()         
 			optimizer.step()       
 		print(np.sum(loss_list), len(loss_list))
-	torch.save(net.state_dict(), './robust_distill_0.8.pth')
+	torch.save(net.state_dict(), './robust_distill_0824.pth')
 
 # train(x, y, Individual)
 robust_train(x, y, Individual)

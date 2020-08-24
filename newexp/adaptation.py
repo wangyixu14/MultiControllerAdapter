@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from Model import Actor, IndividualModel, Individualdistill
+from Model import Actor, IndividualModel
 import time
 import torch.optim as optim
 import random
@@ -257,7 +257,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			trajectory.append(state)
 		for t in range(env.max_iteration):
 			# attacks happen here
-			state += np.random.uniform(low=-0.025, high=0.025, size=state.shape)
+			# state += np.random.uniform(low=-0.025, high=0.025, size=state.shape)
 			state = torch.from_numpy(state).float().to(device)
 			if mode == 'switch':
 				action = model.act(state, epsilon=0)
@@ -290,9 +290,12 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			elif mode == 'd2':
 				control_action = model_2(state).cpu().data.numpy()[0]
 			elif mode == 'individual':
+				# delta, original = fgsm(Individual, state)
+				# if ep == 0:
+				# 	print(delta, original)
+				# control_action = Individual(state+delta).cpu().data.numpy()[0]
 				control_action = Individual(state).cpu().data.numpy()[0]
-				if ep == 0:
-					print(t, state.cpu().data.numpy(), control_action)
+				
 			next_state, reward, done = env.step(control_action, smoothness=0.5)
 			control_action = np.clip(control_action, -1, 1)
 			fuel += abs(control_action) * 10
@@ -323,6 +326,15 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 	plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red')
 	plt.savefig('./safe_samples_region/'+ mode +'.png')
 	return ep_reward, np.array(fuel_list), state_list, control_action_list
+
+def fgsm(model, X, epsilon=0.04):
+	delta = torch.zeros_like(X, requires_grad=True)
+	with torch.no_grad():
+		y = model(X)
+	noise = torch.from_numpy(np.random.uniform(low=-0.004, high=0.004, size=3)).to(device).float()
+	loss = -nn.MSELoss()(model(X + delta+noise), y)
+	loss.backward()
+	return epsilon * delta.grad.detach().sign(), delta.grad.detach()
 
 def collect_data(adapter_name):
 	env = Newenv()
@@ -367,15 +379,13 @@ if __name__ == '__main__':
 	# lipschitz constant 27.8
 	_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='direct_distill_tanh.pth')
 	# lipschitz constant 15
-	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='robust_distill_l2tanh_0.8.pth')
+	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='robust_distill_l2tanh_0824.pth')
 
-	
+	# print(np.mean(indi_fuel), np.mean(robust_fuel), len(indi_fuel), len(robust_fuel))
 	# _, plan_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	# _, avg_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='average')
 	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
 	_, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
-	# print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-	# 	 len(weight_fuel), len(indi_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
 
 	print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(indi_fuel),  np.mean(robust_fuel), np.mean(d1_fuel), np.mean(d2_fuel),
 		len(weight_fuel), len(sw_fuel), len(indi_fuel), len(robust_fuel), len(d1_fuel), len(d2_fuel))

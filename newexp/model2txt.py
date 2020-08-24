@@ -4,7 +4,7 @@ from Model import IndividualModel
 import torch
 import numpy as np
 
-NAME = 'direct_distill_tanh'
+NAME = 'robust_distill_l2tanh_0824'
 trained_model = IndividualModel(state_size=3, action_size=1, seed=0, fc1_units=50)
 trained_model.load_state_dict(torch.load('./'+ NAME +'.pth'))
 trained_model.eval()
