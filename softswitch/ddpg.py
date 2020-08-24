@@ -167,7 +167,7 @@ if __name__ == '__main__':
 	# assert False
 
 	#random intial state test to generate the scatter plot of safe and unsafe region
-	state_list, fuel_list, trajectory = test(agent, './robust_distill_l2tanh.pth', renew=True, state_list=[], EP_NUM=500)
+	state_list, fuel_list, trajectory = test(agent, './robust_distill_l2_new0824.pth', renew=True, state_list=[], EP_NUM=500)
 	print(np.mean(fuel_list), len(fuel_list))
 	# print('')
 	# bpstate_list, bpfuel_list, bptrajectory = test(agent, './robust_distill_l2tanh.pth', renew=False, state_list=state_list, EP_NUM=1, BP=True)

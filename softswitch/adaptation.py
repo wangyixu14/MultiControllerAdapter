@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from Model import Actor, Individualtanh, Individualdistill
+from Model import Actor, Individualtanh
 import time
 import torch.optim as optim
 import random
@@ -67,7 +67,7 @@ else:
 	model_2.load_state_dict(torch.load("./0801actors/actor_1400.pth"))
 model_2.eval()
 
-Individual = Individualdistill(state_size=2, action_size=1, seed=0).to(device)
+Individual = Individualtanh(state_size=2, action_size=1, seed=0).to(device)
 
 agent = Agent(state_size=2, action_size=2, random_seed=0, fc1_units=None, fc2_units=None, weighted=True)
 
@@ -227,6 +227,16 @@ def plan(state, ca1, ca2):
 	else:
 		return ca2 
 
+def fgsm(model, X, epsilon=0.2):
+	delta = torch.zeros_like(X, requires_grad=True)
+
+	with torch.no_grad():
+		y = model(X)
+	noise = torch.from_numpy(np.random.uniform(low=-0.01, high=0.01, size=2)).to(device).float()
+	loss = -nn.MSELoss()(model(X + delta+noise), y)
+	loss.backward()
+	return epsilon * delta.grad.detach().sign(), delta.grad.detach()
+
 # test for 500 cases with their safely control rate and energy consumption
 def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NAME=None):
 	print(mode)
@@ -261,7 +271,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			trajectory.append(state)
 		for t in range(env.max_iteration):
 			# attack happens here
-			state += np.random.uniform(low=-0.15, high=0.15, size=state.shape)
+			# state += np.random.uniform(low=-0.35, high=0.35, size=state.shape)
 			state = torch.from_numpy(state).float().to(device)
 			if mode == 'switch':
 				action = model.act(state, epsilon=0)
@@ -296,6 +306,10 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 				control_action = model_2(state).cpu().data.numpy()[0]
 				
 			elif mode == 'individual':
+				# delta, original = fgsm(Individual, state)
+				# if ep == 0:
+				# 	print(delta, original)
+				# control_action = Individual(state+delta).cpu().data.numpy()[0]
 				control_action = Individual(state).cpu().data.numpy()[0]
 
 			next_state, reward, done = env.step(control_action)
@@ -367,7 +381,7 @@ if __name__ == '__main__':
 		# lipschitz constant 34.8		
 		_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./direct_distill_tanh.pth')
 		# lipschitz constant 15.4
-		_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill_l2tanh.pth')	
+		_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill_l2_new0824.pth')	
 		_, sw_fuel, _, _  = test(ADAPTER_NAME, state_list=state_list, renew=False, mode='switch')
 	else:
 		ADAPTER_NAME = './0801adapter/ddqn_300_1.0.pth'
@@ -378,11 +392,10 @@ if __name__ == '__main__':
 	# _, avg_fuel, _ = test(None, state_list=state_list, renew=False, mode='average')
 	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
 	_, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
-	# print(np.mean(weight_fuel), np.mean(sw_fuel), np.mean(plan_fuel),np.mean(avg_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-	# 	 len(weight_fuel), len(sw_fuel), len(plan_fuel), len(avg_fuel), len(d1_fuel), len(d2_fuel))
+	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(robust_fuel),np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
+		 len(weight_fuel), len(indi_fuel), len(robust_fuel), len(sw_fuel), len(d1_fuel), len(d2_fuel))
 	
-	print(np.mean(weight_fuel), np.mean(indi_fuel), np.mean(robust_fuel), np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel),
-		len(weight_fuel), len(indi_fuel), len(robust_fuel), len(sw_fuel), len(d1_fuel), len(d2_fuel))
+	# print(np.mean(indi_fuel), np.mean(robust_fuel), len(indi_fuel), len(robust_fuel))
 	
 	plt.figure()
 	plt.plot(w_action, label='weighted')

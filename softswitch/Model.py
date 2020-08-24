@@ -105,23 +105,23 @@ class Individualtanh(nn.Module):
         x = torch.tanh(self.fc2(x))
         return x
 
-class Individualdistill(nn.Module):
-    def __init__(self, state_size, action_size, seed, fc1_units=50):
-        super(Individualdistill, self).__init__()
-        self.fc1 = nn.Linear(state_size, fc1_units)
-        self.fc2 = nn.Linear(fc1_units, action_size)
-        # self.fc3 = nn.Linear(fc1_units, action_size)
-        self.seed = torch.manual_seed(seed)
+# class Individualdistill(nn.Module):
+#     def __init__(self, state_size, action_size, seed, fc1_units=50):
+#         super(Individualdistill, self).__init__()
+#         self.fc1 = nn.Linear(state_size, fc1_units)
+#         self.fc2 = nn.Linear(fc1_units, action_size)
+#         # self.fc3 = nn.Linear(fc1_units, action_size)
+#         self.seed = torch.manual_seed(seed)
 
-    def reset_parameters(self):
-        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
-        self.fc2.weight.data.uniform_(-3e-3, 3e-3)
+#     def reset_parameters(self):
+#         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+#         self.fc2.weight.data.uniform_(-3e-3, 3e-3)
 
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        # x = F.relu(self.fc2(x))
-        x = self.fc2(x)
-        return x
+#     def forward(self, x):
+#         x = F.relu(self.fc1(x))
+#         # x = F.relu(self.fc2(x))
+#         x = self.fc2(x)
+#         return x
 
 if __name__ == '__main__':
     from thop import profile

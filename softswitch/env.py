@@ -62,13 +62,13 @@ class Osillator:
     def step(self, action, smoothness=0.2):
         u = action * self.u_range
         u = np.clip(u, -20, 20)
-        ORI = False
+        ORI = True
         if ORI:
             disturbance = np.random.uniform(-0.05, 0.05)
             x0_tmp = self.state[0] + self.deltaT * self.state[1]
         else:
             disturbance = np.random.uniform(-0.15, 0.15)
-            dist_new = np.random.uniform(-0.1, 0.1)
+            dist_new = np.random.uniform(-0.05, 0.05)
             x0_tmp = self.state[0] + self.deltaT * self.state[1] + dist_new
 
         x1_tmp = self.state[1] + self.deltaT*((1-self.state[0]**2)*self.state[1] - self.state[0] + u) + disturbance

@@ -4,7 +4,7 @@ import random
 import copy
 from collections import namedtuple, deque
 
-from Model import Actor, Critic, Individualtanh, Individualdistill
+from Model import Actor, Critic, Individualtanh
 from Noise import OUNoise
 
 import torch
