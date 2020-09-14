@@ -295,6 +295,8 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 				# 	print(delta, original)
 				# control_action = Individual(state+delta).cpu().data.numpy()[0]
 				control_action = Individual(state).cpu().data.numpy()[0]
+				if ep == 0:
+					print(t, state.cpu().data.numpy(), control_action)
 				
 			next_state, reward, done = env.step(control_action, smoothness=0.5)
 			control_action = np.clip(control_action, -1, 1)
@@ -382,6 +384,7 @@ if __name__ == '__main__':
 	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='robust_distill_l2tanh_0824.pth')
 
 	# print(np.mean(indi_fuel), np.mean(robust_fuel), len(indi_fuel), len(robust_fuel))
+	# assert False
 	# _, plan_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='planning')
 	# _, avg_fuel, _, _ = test(None, state_list=state_list, renew=False, mode='average')
 	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
