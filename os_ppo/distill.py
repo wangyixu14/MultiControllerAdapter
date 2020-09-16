@@ -38,18 +38,18 @@ def train(inputdata, label, net):
 		print(np.sum(loss_list), len(loss_list))
 	torch.save(net.state_dict(), './direct_distill.pth')
 
-def fgsm(model, X, y, epsilon=0.2):
+def fgsm(model, X, y, epsilon=0.25):
     delta = torch.zeros_like(X, requires_grad=True)
     loss = -nn.MSELoss()(model(X + delta), y)
     loss.backward()
     return epsilon * delta.grad.detach().sign()
 
 def robust_train(inputdata, label, net):
-	optimizer = torch.optim.Adam(net.parameters(), weight_decay=1e-5)
+	optimizer = torch.optim.Adam(net.parameters(), weight_decay=5e-5)
 	criterion = torch.nn.MSELoss()  
 
 	BATCH_SIZE = 100
-	EPOCH = 100
+	EPOCH = 200
 
 	torch_dataset = Data.TensorDataset(inputdata, label)
 
@@ -61,7 +61,7 @@ def robust_train(inputdata, label, net):
 	for epoch in range(EPOCH):
 		loss_list = []
 		for step, (batch_x, batch_y) in enumerate(loader, 0):
-			if np.random.uniform(low=0, high=1, size=1)[0] > 0.8:
+			if np.random.uniform(low=0, high=1, size=1)[0] > 0.7:
 				delta = fgsm(net, batch_x, batch_y)
 				prediction = net(batch_x+delta)
 			else:
@@ -72,7 +72,7 @@ def robust_train(inputdata, label, net):
 			loss.backward()         
 			optimizer.step()       
 		print(np.sum(loss_list), len(loss_list))
-	torch.save(net.state_dict(), './robust_distill.pth')
+	torch.save(net.state_dict(), './robust_distill_0915.pth')
 
 # train(x, y, Individual)
 robust_train(x, y, Individual)

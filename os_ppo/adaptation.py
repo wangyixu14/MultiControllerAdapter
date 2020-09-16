@@ -26,7 +26,7 @@ from ppo import PPO
 weight = 1
 print(weight)
 
-ATTACK = False
+ATTACK = True
 SCALE = 0.3
 
 class ReplayBuffer(object):
@@ -376,21 +376,21 @@ if __name__ == '__main__':
 	# assert False
 
 	state_list = np.load('init_state.npy')
-	
+
 	# _, weight_fuel, _, w_action  = test('./0731adapter/adapter_300_exce.pth', state_list=state_list, renew=False, mode='weight')
-	# lipschitz constant 34.8		
+	# lipschitz constant 20.9		
 	_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./direct_distill.pth')
-	# lipschitz constant 15.4
-	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill.pth')	
+	# lipschitz constant 12.9
+	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill_0915.pth')	
 	
-	_, ppo_fuel, _, ppo_action = test(None, state_list=state_list, renew=False, mode='ppo')
-	_, sw_fuel, _, _  = test('switcher.pth', state_list=state_list, renew=False, mode='switch')
-	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
-	_, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
-	print(np.mean(ppo_fuel), np.mean(indi_fuel), np.mean(robust_fuel),np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-		 len(ppo_fuel), len(indi_fuel), len(robust_fuel), len(sw_fuel), len(d1_fuel), len(d2_fuel))
+	# _, ppo_fuel, _, ppo_action = test(None, state_list=state_list, renew=False, mode='ppo')
+	# _, sw_fuel, _, _  = test('switcher.pth', state_list=state_list, renew=False, mode='switch')
+	# _, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
+	# _, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
+	# print(np.mean(ppo_fuel), np.mean(indi_fuel), np.mean(robust_fuel),np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
+	# 	 len(ppo_fuel), len(indi_fuel), len(robust_fuel), len(sw_fuel), len(d1_fuel), len(d2_fuel))
 	
-	# print(np.mean(indi_fuel), np.mean(robust_fuel), len(indi_fuel), len(robust_fuel))
+	print(np.mean(indi_fuel), np.mean(robust_fuel), len(indi_fuel), len(robust_fuel))
 	
 	plt.figure()
 	# plt.plot(ppo_action, label='ppo')
