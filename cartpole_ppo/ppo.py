@@ -21,8 +21,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from env import Osillator
-from Model import Actor, Individualtanh
+from env import ContinuousCartPoleEnv
+from Model import Actor
 
 GPU = True
 device_idx = 0
@@ -43,7 +43,7 @@ args = parser.parse_args()
 RANDOMSEED = 2  # random seed
 
 EP_MAX = 7000  # total number of episodes for training
-EP_LEN = 100  # total number of steps for each episode
+EP_LEN = 200  # total number of steps for each episode
 GAMMA = 0.9  # reward discount
 A_LR = 0.0001  # learning rate for actor
 C_LR = 0.0002  # learning rate for critic
@@ -66,14 +66,15 @@ ARG_NAME = 'PPO'
 METHOD  = ['penalty', 'clip'][0]
 
 # underlying controller candidates
-model_1 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25, fc2_units=None).to(device)
-model_1.load_state_dict(torch.load("./models/actor_2800.pth"))
+model_1 = Actor(state_size=4, action_size=1, seed=0).to(device)
+model_1.load_state_dict(torch.load("./actor5000_1.pth"))
 model_1.eval()
 
-model_2 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
-model_2.load_state_dict(torch.load("./0731actors/actor_2400.pth"))
+model_2 = Actor(state_size=4, action_size=1, seed=0).to(device)
+model_2.load_state_dict(torch.load("./actor4850_1.pth"))
 model_2.eval()
 WEIGHT = 1
+# assert False
 
 class AddBias(nn.Module):
     def __init__(self, bias):
@@ -366,11 +367,11 @@ def gene_u(s, a, model_1, model_2):
     ci2 = model_2(torch.from_numpy(s).float().to(device)).cpu().data.numpy()[0]
     # print(ci1, ci2)
     control_input = a[0]*ci1 + a[1]*ci2
-    return control_input
+    return np.array([control_input])
 
 def train():
-    env = Osillator()
-    state_dim = 2
+    env = ContinuousCartPoleEnv()
+    state_dim = 4
     action_dim = 2
 
     # reproducible
@@ -389,15 +390,15 @@ def train():
             if RENDER:
                 env.render()
             a = ppo.choose_action(s)
-            u = gene_u(s, a, model_1, model_2)
-            s_, _, done = env.step(u)
+            u = np.clip(gene_u(s, a, model_1, model_2), -1, 1)
+            s_, _, done, _ = env.step(u)
             # print(s, a, s_, r, done)
             # assert False
-            r = 10
-            r -= WEIGHT * abs(np.clip(u, -1, 1)) * 20
-            r -= 1 / WEIGHT * (abs(s_[0]) + abs(s_[1]))
-            if done and t < 95:
-                r -= 100
+            r = 5
+            r -= WEIGHT * abs(u[0])
+            # r -= 1 / WEIGHT * (abs(s_[0]) + abs(s_[1]))
+            if done and t != 199:
+                r -= 50
             ppo.store_transition(s, a, r)  # useful for pendulum since the nets are very small, normalization make it easier to learn
             s = s_
             ep_r += r
@@ -442,7 +443,7 @@ if __name__ == '__main__':
     train()
     assert False
     # test
-    env = Osillator()
+    env = ContinuousCartPoleEnv()
     state_dim = 2
     action_dim = 2
     ppo = PPO(state_dim, action_dim, method = METHOD)

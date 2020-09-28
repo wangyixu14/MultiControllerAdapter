@@ -12,7 +12,6 @@ from torch.autograd import Variable
 import math
 from torch.utils.tensorboard import SummaryWriter
 import sys
-from env import Osillator
 import scipy.io as io
 from scipy.interpolate import interp2d
 import matplotlib.pyplot as plt
@@ -20,14 +19,16 @@ import gym
 import torch.autograd as autograd
 from interval import Interval
 import os
-from Agent import Agent, Weight_adapter
+from Agent import Agent
 from ppo import PPO
+from env import ContinuousCartPoleEnv
 
 weight = 1
 print(weight)
 
 ATTACK = False
-SCALE = 0.3
+SCALE1 = 0.24
+SCALE2 = 0.02
 
 class ReplayBuffer(object):
 	def __init__(self, capacity):
@@ -58,20 +59,20 @@ epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_fi
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-model_1 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25, fc2_units=None).to(device)
-model_1.load_state_dict(torch.load("./models/actor_2800.pth"))
+model_1 = Actor(state_size=4, action_size=1, seed=0).to(device)
+model_1.load_state_dict(torch.load("./actor5000_1.pth"))
 model_1.eval()
 
-model_2 = Actor(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
-model_2.load_state_dict(torch.load("./0731actors/actor_2400.pth"))
+model_2 = Actor(state_size=4, action_size=1, seed=0).to(device)
+model_2.load_state_dict(torch.load("./actor4850_1.pth"))
 model_2.eval()
 
-Individual = Individualtanh(state_size=2, action_size=1, seed=0, fc1_units=25).to(device)
+Individual = Individualtanh(state_size=4, action_size=1, seed=0, fc1_units=50).to(device)
 
-agent = Agent(state_size=2, action_size=2, random_seed=0, fc1_units=None, fc2_units=None, weighted=True)
+agent = Agent(state_size=4, action_size=2, random_seed=0)
 
-ppo = PPO(2, 2, method = 'clip')
-ppo.load_model(3000, 1)
+ppo = PPO(4, 2, method = 'penalty')
+ppo.load_model(5499, 1)
 
 def mkdir(path):
 	folder = os.path.exists(path)
@@ -132,10 +133,10 @@ def compute_td_loss(model, target_model, batch_size, optimizer):
 
 # train the switcher by Double DQN for multiple controllers switching
 def train_switcher_DDQN():
-	mkdir('./adapter_ab')
-	env = Osillator()
-	model = DQN(2, 2).to(device)
-	target_model = DQN(2, 2).to(device)
+	mkdir('./switch')
+	env = ContinuousCartPoleEnv()
+	model = DQN(4, 2).to(device)
+	target_model = DQN(4, 2).to(device)
 	optimizer = optim.Adam(model.parameters())
 	EP_NUM = 2001
 	frame_idx = 0
@@ -151,19 +152,19 @@ def train_switcher_DDQN():
 			action = model.act(state, epsilon)
 			with torch.no_grad():
 				if action == 0:
-					control_action = model_1(state).cpu().data.numpy()[0]
+					control_action = model_1(state).cpu().data.numpy()
 				elif action == 1:
-					control_action = model_2(state).cpu().data.numpy()[0]
+					control_action = model_2(state).cpu().data.numpy()
 				else: 
 					assert False
 					control_action = 0
-			next_state, _, done = env.step(control_action)
-			reward = 2
-			reward -= weight * abs(control_action) * 20
-			if done and t <190:
-				reward -= 100
+			next_state, _, done, _ = env.step(control_action)
+			reward = 5
+			reward -= weight * abs(control_action)
+			if done and t != 199:
+				reward -= 50
 			replay_buffer.push(state.cpu().numpy(), action, reward, next_state, done)
-			fuel_list.append(abs(control_action) * 20)
+			fuel_list.append(abs(control_action))
 			state = next_state
 			ep_r += reward
 			frame_idx += 1
@@ -177,78 +178,29 @@ def train_switcher_DDQN():
 		print('epoch:', ep, 'reward:', ep_r, 'average reward:', np.mean(ep_reward),
 					 'fuel cost:', sum(fuel_list[-t - 1:]), 'epsilon:', epsilon, len(replay_buffer)) 
 		if ep >= 100 and ep % 100 == 0:
-			torch.save(model.state_dict(), './adapter_ab/ddqn_'+str(ep)+'_'+str(weight)+'.pth')
+			torch.save(model.state_dict(), './switch/ddqn_'+str(ep)+'_'+str(weight)+'.pth') 
 
-# train the adapter for weighted adaptation control with multiple controllers by DDPG
-def train_weight_adapter_DDPG(EP_NUM=2000):
-	mkdir('./adapter_soft')
-	env = Osillator()
-	scores_deque = deque(maxlen=100)
-	scores = []
-
-	for ep in range(EP_NUM):
-		state = env.reset()
-		agent.reset()
-		score = 0
-		for t in range(200):
-			action = agent.act(state)
-			ca1 = model_1(torch.from_numpy(state).float().to(device)).cpu().data.numpy()[0]
-			ca2 = model_2(torch.from_numpy(state).float().to(device)).cpu().data.numpy()[0]
-			control_action = action[0]*ca1 + action[1]*ca2
-			next_state, _, done = env.step(control_action, smoothness=0.5)
-			reward = 5
-			reward -= weight * abs(control_action) * 20
-			reward -= 1 / weight * (abs(next_state[0]) + abs(next_state[1]))
-			if done and t < 95:
-				reward -= 100
-			agent.step(state, action, reward, next_state, done, t)
-			score += reward
-			state = next_state            
-			if done:
-				break
-		scores_deque.append(score)
-		scores.append(score)
-		score_average = np.mean(scores_deque)
-		if ep % 1 == 0:
-			print('\rEpisode {}, Average Score: {:.2f}, Current Score:{:.2f}, Max: {:.2f}, Min: {:.2f}, Epsilon: {:.2f}, Momery:{:.1f}'\
-				  .format(ep, score_average,  scores[-1], np.max(scores), np.min(scores), agent.epsilon, len(agent.memory)), end="\n")     
-		if ep > 0 and ep % 100 == 0:
-			torch.save(agent.actor_local.state_dict(), './adapter_soft/adapter_'+str(ep)+'_'+str(weight)+ '.pth')
-
-def plan(state, ca1, ca2):
-	u1 = ca1*20
-	u2 = ca2*20
-	x0 = state[0] + 0.05 * state[1]
-	x1 = state[1] + 0.05*((1-state[0]**2)*state[1] - state[0] + u1)
-	
-	x2 = state[0] + 0.05 * state[1]
-	x3 = state[1] + 0.05*((1-state[0]**2)*state[1] - state[0] + u2)
-
-	if x0**2 + x1**2 < x2**2 + x3**2:
-		return ca1 
-	else:
-		return ca2 
-
-def fgsm(model, X, epsilon=SCALE):
+def fgsm(model, X, epsilon1=SCALE1, epsilon2=SCALE2):
 	delta = torch.zeros_like(X, requires_grad=True)
 
 	with torch.no_grad():
 		y = model(X)
-	noise = torch.from_numpy(np.random.uniform(low=-0.01, high=0.01, size=2)).to(device).float()
+	noise = torch.from_numpy(np.random.uniform(low=-0.002, high=0.002, size=4)).to(device).float()
 	loss = -nn.MSELoss()(model(X + delta+noise), y)
 	loss.backward()
-	return epsilon * delta.grad.detach().sign(), delta.grad.detach()
-
+	indicator = delta.grad.detach().sign()
+	indicator[0] *= epsilon1 
+	indicator[1] *= 0
+	indicator[2] *= epsilon2
+	indicator[-1] *= 0
+	return indicator
 # test for 500 cases with their safely control rate and energy consumption
 def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NAME=None):
 	print(mode)
-	env = Osillator()
+	env = ContinuousCartPoleEnv()
 	EP_NUM = 500
 	if mode == 'switch':
-		model = DQN(2, 2).to(device)
-		model.load_state_dict(torch.load(adapter_name))
-	if mode == 'weight':
-		model = Weight_adapter(2, 2).to(device)
+		model = DQN(4, 2).to(device)
 		model.load_state_dict(torch.load(adapter_name))
 	if mode == 'individual':
 		Individual.load_state_dict(torch.load(INDI_NAME))
@@ -266,61 +218,55 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 			state_list.append(state)
 		else:
 			assert len(state_list) == EP_NUM
-			state = env.reset(state_list[ep][0], state_list[ep][1])
+			state = env.reset(state=state_list[ep], set_state=True)
 		ep_r = 0
 		fuel = 0
 		if ep == 0:
 			trajectory.append(state)
-		for t in range(env.max_iteration):
+		for t in range(200):
 			state = torch.from_numpy(state).float().to(device)
 			if mode == 'switch':
 				action = model.act(state, epsilon=0)
 				with torch.no_grad():
 					if action == 0:
-						control_action = model_1(state).cpu().data.numpy()[0]
+						control_action = model_1(state).cpu().data.numpy()
 					elif action == 1:
-						control_action = model_2(state).cpu().data.numpy()[0]
+						control_action = model_2(state).cpu().data.numpy()
 					else:
 						assert False
 						control_action = 0
+			
 			elif mode == 'ppo':
 				action = ppo.choose_action(state.cpu().data.numpy(), True)
 				ca1 = model_1(state).cpu().data.numpy()[0]
 				ca2 = model_2(state).cpu().data.numpy()[0]
-				control_action = action[0]*ca1 + action[1]*ca2
+				control_action = np.array([action[0]*ca1 + action[1]*ca2])
+				control_action = np.clip(control_action, -1, 1)
 				if ep == 0:
 					print(t, state, control_action, action, ca1, ca2)				
 
-			elif mode == 'average':
-				ca1 = model_1(state).cpu().data.numpy()[0]
-				ca2 = model_2(state).cpu().data.numpy()[0]
-				control_action = (ca1 + ca2)/2
-			elif mode == 'planning':
-				ca1 = model_1(state).cpu().data.numpy()[0]
-				ca2 = model_2(state).cpu().data.numpy()[0]
-				control_action = plan(state, ca1, ca2) 
-
 			elif mode == 'd1':
-				control_action = model_1(state).cpu().data.numpy()[0]
-				if ep == 0:
-					print(state, control_action)
+				control_action = model_1(state).cpu().data.numpy()
 
 			elif mode == 'd2':
-				control_action = model_2(state).cpu().data.numpy()[0]
+				control_action = model_2(state).cpu().data.numpy()
 				
 			elif mode == 'individual':
 				if ATTACK:
-					delta, original = fgsm(Individual, state)
-					# delta = torch.from_numpy(np.random.uniform(low=-SCALE, high=SCALE, size=state.shape)).float().to(device)
-					control_action = Individual(state+delta).cpu().data.numpy()[0]
+					if t % 15 == 0:
+						delta = fgsm(Individual, state)
+						# ele1 = np.random.uniform(low=-SCALE1, high=SCALE1, size=1)[0]
+						# ele2 = np.random.uniform(low=-SCALE2, high=SCALE2, size=1)[0]
+						# delta = torch.from_numpy(np.array([ele1, 0, ele2, 0])).float().to(device)
+					control_action = Individual(state+delta).cpu().data.numpy()
 				else:
-					control_action = Individual(state).cpu().data.numpy()[0]
-
-			next_state, reward, done = env.step(control_action)
+					control_action = Individual(state).cpu().data.numpy()
+			
 			control_action = np.clip(control_action, -1, 1)
-			fuel += abs(control_action) * 20
+			next_state, reward, done, _ = env.step(control_action)
+			fuel += abs(control_action)
 			state = next_state
-			if ep == 0:
+			if ep == 99:
 				trajectory.append(state)
 				control_action_list.append(control_action)
 			ep_r += reward
@@ -328,7 +274,7 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 				break
 		
 		ep_reward.append(ep_r)
-		if t >= 95:
+		if t == 199:
 			fuel_list.append(fuel)
 			safe.append(state_list[ep])
 		else:
@@ -342,54 +288,58 @@ def test(adapter_name=None, state_list=None, renew=False, mode='switch', INDI_NA
 
 
 def collect_data():
-	env = Osillator()
-	EP_NUM = 1500
+	env = ContinuousCartPoleEnv()
+	EP_NUM = 1000
 	data_set = []
 	for ep in range(EP_NUM):
 		ep_loss = 0
 		state = env.reset()
-		for t in range(env.max_iteration):
+		for t in range(200):
 			state = torch.from_numpy(state).float().to(device)
-			action = ppo.choose_action(state.cpu().data.numpy(), False)
+			action = ppo.choose_action(state.cpu().data.numpy(), True)
 			with torch.no_grad():
 				ca1 = model_1(state)
 				ca2 = model_2(state)
 			control_action = ca1*action[0] + ca2*action[1]
-
-			next_state, reward, done = env.step(control_action.cpu().data.numpy()[0])
-			data_set.append([state.cpu().data.numpy()[0], state.cpu().data.numpy()[1], np.clip(control_action.cpu().data.numpy()[0], -1, 1)])
+			control_action = np.clip(control_action.cpu().data.numpy(), -1, 1)
+			next_state, reward, done, _ = env.step(control_action)
+			data_set.append([state.cpu().data.numpy()[0], state.cpu().data.numpy()[1], state.cpu().data.numpy()[2],
+				state.cpu().data.numpy()[3], control_action[0]])
 			state = next_state
 			if done:
 				break
 		print(t)
 	return np.array(data_set)
+
 if __name__ == '__main__':
 	# dataset = collect_data()
 	# np.save('dataset.npy', dataset)
 	# assert False
 
-	state_list = np.load('init_state.npy')
+	# train_switcher_DDQN()
+	# assert False
 
-	# _, weight_fuel, _, w_action  = test('./0731adapter/adapter_300_exce.pth', state_list=state_list, renew=False, mode='weight')
-	# lipschitz constant 20.9		
+	state_list = np.load('init_state.npy')
+	# switching
+	_, sw_fuel, _, _  = test('./switcher.pth', state_list=state_list, renew=False, mode='switch')
+
+	# direct distillation lipschitz constant 126.1		
 	_, indi_fuel, _, indi_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./direct_distill.pth')
-	# lipschitz constant 12.9
-	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill_0915.pth')	
+
+	# robust distillation lipschitz constant 72.5
+	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill.pth')	
 	
+	# hierarchical control by learned adapter
 	_, ppo_fuel, _, ppo_action = test(None, state_list=state_list, renew=False, mode='ppo')
-	_, sw_fuel, _, _  = test('switcher.pth', state_list=state_list, renew=False, mode='switch')
 	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
 	_, d2_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d2')
-	print(np.mean(ppo_fuel), np.mean(indi_fuel), np.mean(robust_fuel),np.mean(sw_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
-		 len(ppo_fuel), len(indi_fuel), len(robust_fuel), len(sw_fuel), len(d1_fuel), len(d2_fuel))
+	print(np.mean(ppo_fuel), np.mean(indi_fuel), np.mean(robust_fuel), np.mean(d1_fuel), np.mean(d2_fuel), 
+		 len(ppo_fuel), len(indi_fuel), len(robust_fuel), len(d1_fuel), len(d2_fuel))
 	
-	print(np.mean(indi_fuel), np.mean(robust_fuel), len(indi_fuel), len(robust_fuel))
 	
 	plt.figure()
-	# plt.plot(ppo_action, label='ppo')
 	plt.figure(figsize=(6, 4))
 	plt.plot(indi_action, label='regular_distill')
 	plt.plot(robust_action, label='robust_distill')
 	plt.legend()
 	plt.savefig('./plot/OS_attack_u.pdf', bbox='tight')
-	
