@@ -112,10 +112,10 @@ def test(modelname, renew, state_list=[], EP_NUM=500, random_initial_test=True):
 	# 		plt.scatter(unsafe[:, 0], unsafe[:, 1], c='red', marker='*')
 	# 	plt.savefig(filename+'.png')
 	control_input = np.array(control_input)
-	plt.plot(control_input[:, 0], label='nn')
-	plt.plot(control_input[:, 1], label='BP')
-	plt.legend()
-	plt.savefig('nn2BP.jpg')
+	# plt.plot(control_input[:, 0], label='nn')
+	# plt.plot(control_input[:, 1], label='BP')
+	# plt.legend()
+	# plt.savefig('nn2BP.jpg')
 	return state_list, fuel_list
 
 
