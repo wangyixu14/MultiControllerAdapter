@@ -328,7 +328,7 @@ if __name__ == '__main__':
 
 	# robust distillation lipschitz constant 72.5
 	_, robust_fuel, _, robust_action = test(None, state_list=state_list, renew=False, mode='individual', INDI_NAME='./robust_distill.pth')	
-	
+		
 	# hierarchical control by learned adapter
 	_, ppo_fuel, _, ppo_action = test(None, state_list=state_list, renew=False, mode='ppo')
 	_, d1_fuel, _, _  = test(None, state_list=state_list, renew=False, mode='d1')
@@ -337,9 +337,13 @@ if __name__ == '__main__':
 		 len(ppo_fuel), len(indi_fuel), len(robust_fuel), len(d1_fuel), len(d2_fuel))
 	
 	
-	plt.figure()
-	plt.figure(figsize=(6, 4))
-	plt.plot(indi_action, label='regular_distill')
-	plt.plot(robust_action, label='robust_distill')
-	plt.legend()
-	plt.savefig('./plot/OS_attack_u.pdf', bbox='tight')
+	# plt.figure()
+	# plt.figure(figsize=(6, 4))
+	# plt.plot(indi_action, label='regular_distill')
+	# plt.plot(robust_action, label='robust_distill')
+	# plt.legend()
+	# plt.savefig('./plot/OS_attack_u.pdf', bbox='tight')
+
+	np.save('../tmp/cartpole_direct.npy', indi_action)
+	np.save('../tmp/cartpole_robust.npy', robust_action)
+	

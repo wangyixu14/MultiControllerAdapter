@@ -1,6 +1,6 @@
-# MultiControllerAdapter
-This repo is targeting the research of towards safe, robust, and verifiable neural network controller synthesis
-based on multiple available neural network controller candidates.  
+# Automatic Neural Network Controller Design for Learning-Enabled Cyber-Physical Systems
+This repo is targeting the research of towards safe, efficient, robust, and verifiable neural network controller synthesis for LE-CPSs based on multiple available control experts.  
+
 ## Examples
 1. Van der Pol's Oscillator
 2. 3-dimensional polynomial system 
