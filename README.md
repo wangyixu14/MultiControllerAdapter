@@ -7,9 +7,11 @@ This repo is targeting the research of towards safe, efficient, robust, and veri
 3. Cartpole system
 
 ## Primal Results
-$ cd os_ppo
-$ python adaptation.py
-Similar to /3d_ppo/, /cartpole_ppo/
+```console
+~$ cd os_ppo
+~$ python adaptation.py
+```
+Similar commands apply to /3d_ppo/, /cartpole_ppo/
 <!-- ## ICCAD 2020: Energy-Efficient Control Adaptation With Safety Guarantees for Learning-Enabled Cyber-Physical Systems
 The key code of our ICCAD 2020 paper is contained in this repo. Please check the ./os_ppo/ subfolder. 
 1. The MATLAB code is used to compute the inner-approximation of robust invariant set for the synthsized robust neural network controller. 
